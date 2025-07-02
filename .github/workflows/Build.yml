@@ -1,55 +1,71 @@
 name: Build
 
 on:
-  workflow_dispatch:  # 手动触发工作流
+  workflow_dispatch: # 允许手动触发
 
 jobs:
-  build-and-package:
-    name: Build and Package
+  build-android-arm64:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive  # 确保获取子模块
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: 'angle-turnip' # 指定分支
+          submodules: recursive # 包含子模块
 
-    - name: Set up NDK
-      run: |
-        # 下载并配置 Android NDK r21e（长期支持版本）
-        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
-        unzip -q android-ndk-r21e-linux-x86_64.zip
-        echo "NDK_PATH=$PWD/android-ndk-r21e" >> $GITHUB_ENV
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Install build dependencies
-      run: |
-        sudo apt-get -qq update
-        sudo apt-get -qq install cmake ninja-build
+      - name: Setup Android NDK
+        uses: android-actions/setup-android-ndk@v1
+        with:
+          ndk-version: '25.2.9519653' # 推荐使用稳定版本
 
-    - name: Build libmobileglues
-      run: |
-        # 创建构建目录并编译
-        mkdir build && cd build
-        cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=arm64-v8a \
-          -DANDROID_NATIVE_API_LEVEL=21 \
-          -DANDROID_NDK=$NDK_PATH \
-          -G Ninja
-        ninja
+      - name: Setup Build Environment
+        shell: bash
+        run: |
+          # 添加 NDK 工具链到 PATH
+          echo "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+          
+          # 验证工具链路径
+          echo "NDK Path: $ANDROID_NDK_HOME"
+          ls -l $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android*
 
-    - name: Package artifacts
-      run: |
-        mkdir -p dist/arm64-v8a
-        # 复制生成的库文件
-        cp build/libmobileglues.so dist/arm64-v8a/
-        # 创建带版本标记的压缩包
-        timestamp=$(date +%Y%m%d_%H%M%S)
-        cd dist
-        zip -r mobileglues_arm64-v8a_$timestamp.zip arm64-v8a
+      - name: Build libmobileglues.so (arm64-v8a)
+        shell: bash
+        run: |
+          # 设置 ARM64 编译工具链
+          export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang"
+          export CXX="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang++"
+          
+          # 验证编译器存在
+          which $CC
+          which $CXX
+          
+          # 开始构建
+          cd MobileGlues # 进入项目目录（根据实际结构调整）
+          make clean
+          make TARGET=android_arm64
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: android-arm64-binaries
-        path: dist/mobileglues_arm64-v8a_*.zip
+      - name: Verify Output
+        shell: bash
+        run: |
+          cd MobileGlues/output/android_arm64 # 检查实际输出路径
+          file libmobileglues.so
+          ls -lh libmobileglues.so
+
+      - name: Package Artifacts
+        run: |
+          cd MobileGlues/output/android_arm64
+          zip -r libmobileglues_android_arm64.zip libmobileglues.so
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: libmobileglues_android_arm64
+          path: |
+            MobileGlues/output/android_arm64/libmobileglues_android_arm64.zip
+            MobileGlues/output/android_arm64/libmobileglues.so
