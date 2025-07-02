@@ -1,120 +1,55 @@
 name: Build
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发工作流
 
 jobs:
-  build-android:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+  build-and-package:
+    name: Build and Package
+    runs-on: ubuntu-latest
 
     steps:
-    # 1. 检出代码
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        submodules: recursive  # 确保获取子模块
 
-    # 2. 设置基础环境
-    - name: Setup environment
+    - name: Set up NDK
       run: |
-        # 设置关键环境变量
-        echo "BUILD_DIR=$GITHUB_WORKSPACE/android-build" >> $GITHUB_ENV
-        echo "ANDROID_ABI=arm64-v8a" >> $GITHUB_ENV
-        echo "ANDROID_PLATFORM=24" >> $GITHUB_ENV
-        
-        # 创建构建目录
-        mkdir -p $BUILD_DIR
-        echo "✅ Environment setup complete"
+        # 下载并配置 Android NDK r21e（长期支持版本）
+        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+        unzip -q android-ndk-r21e-linux-x86_64.zip
+        echo "NDK_PATH=$PWD/android-ndk-r21e" >> $GITHUB_ENV
 
-    # 3. 安装必要工具
-    - name: Install essential tools
+    - name: Install build dependencies
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y --no-install-recommends \
-          build-essential \
-          cmake \
-          ninja-build \
-          clang \
-          git \
-          wget \
-          unzip
-        
-        echo "✅ Essential tools installed"
+        sudo apt-get -qq update
+        sudo apt-get -qq install cmake ninja-build
 
-    # 4. 下载并设置NDK
-    - name: Install Android NDK
+    - name: Build libmobileglues
       run: |
-        # 下载NDK
-        NDK_VERSION="25.2.9519653"
-        NDK_ZIP="android-ndk-r25b-linux.zip"
-        wget -q "https://dl.google.com/android/repository/$NDK_ZIP"
-        unzip -q "$NDK_ZIP"
-        rm "$NDK_ZIP"
-        
-        # 设置环境变量
-        NDK_HOME="$GITHUB_WORKSPACE/android-ndk-r25b"
-        echo "NDK_HOME=$NDK_HOME" >> $GITHUB_ENV
-        echo "ANDROID_NDK_HOME=$NDK_HOME" >> $GITHUB_ENV
-        echo "PATH=$NDK_HOME:$PATH" >> $GITHUB_ENV
-        
-        # 验证安装
-        echo "NDK version:"
-        $NDK_HOME/ndk-build --version
-        echo "✅ NDK installed and configured"
-
-    # 5. 配置项目
-    - name: Configure project
-      working-directory: ${{ env.BUILD_DIR }}
-      run: |
-        cmake $GITHUB_WORKSPACE \
-          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=$ANDROID_ABI \
-          -DANDROID_PLATFORM=$ANDROID_PLATFORM \
-          -DCMAKE_BUILD_TYPE=Release \
+        # 创建构建目录并编译
+        mkdir build && cd build
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_NATIVE_API_LEVEL=21 \
+          -DANDROID_NDK=$NDK_PATH \
           -G Ninja
-          
-        echo "✅ Project configured"
+        ninja
 
-    # 6. 构建项目
-    - name: Build project
-      working-directory: ${{ env.BUILD_DIR }}
+    - name: Package artifacts
       run: |
-        cmake --build . --target mobileglues --parallel $(nproc)
-        
-        # 验证构建产物
-        if [ -f "libmobileglues.so" ]; then
-          echo "✅ Build successful! File size: $(stat -c %s libmobileglues.so) bytes"
-        else
-          echo "❌ Build failed - libmobileglues.so not found!"
-          ls -l
-          exit 1
-        fi
+        mkdir -p dist/arm64-v8a
+        # 复制生成的库文件
+        cp build/libmobileglues.so dist/arm64-v8a/
+        # 创建带版本标记的压缩包
+        timestamp=$(date +%Y%m%d_%H%M%S)
+        cd dist
+        zip -r mobileglues_arm64-v8a_$timestamp.zip arm64-v8a
 
-    # 7. 验证架构
-    - name: Verify architecture
-      run: |
-        # 检查是否为 ARM64 架构
-        arch_info=$(readelf -h $BUILD_DIR/libmobileglues.so | grep 'Machine:' | awk '{print $2}')
-        
-        if [ "$arch_info" = "AArch64" ]; then
-          echo "✅ Verified: ARM64 (AArch64) architecture"
-        else
-          echo "❌ ERROR: Incorrect architecture - expected ARM64, found $arch_info"
-          exit 1
-        fi
-
-    # 8. 上传成品
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
-        name: android-arm64-libmobileglues
-        path: ${{ env.BUILD_DIR }}/libmobileglues.so
-        retention-days: 30
-        if-no-files-found: error
-
-    # 9. 清理资源
-    - name: Cleanup
-      run: |
-        echo "Build artifacts preserved"
-        echo "Temporary files will be discarded after job completion"
+        name: android-arm64-binaries
+        path: dist/mobileglues_arm64-v8a_*.zip
