@@ -1,0 +1,47 @@
+name: Gradle CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    # 设置 Java 环境
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'gradle'  # 自动缓存依赖
+    
+    # 使用 Gradle 官方 Action（推荐）
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: wrapper  # 使用项目中的 gradle-wrapper.properties 指定版本
+        
+    # 可选：授予 gradlew 执行权限（Linux/macOS需要）
+    - name: Make gradlew executable
+      run: chmod +x gradlew
+      
+    # 构建和测试
+    - name: Run tests with Gradle
+      run: ./gradlew test
+      
+    - name: Build artifact
+      run: ./gradlew assemble
+      
+    # 上传构建产物
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-apk
+        path: app/build/outputs/apk/**/*.apk
