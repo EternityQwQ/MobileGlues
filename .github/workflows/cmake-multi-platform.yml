@@ -9,7 +9,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -18,7 +18,7 @@ jobs:
       
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@main
 
 
 
@@ -36,19 +36,10 @@ jobs:
         -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
         -DANDROID_TOOLCHAIN=clang
         
-
-    - name: Build
-      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build src/main/cpp/build --config Release --target mobileglues
-
-    - name: Strip
-      run: |
-        cd src/main/cpp/build/
-        $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip libmobileglues.so
-       
+    
         name:Build
-        uses:actions/upload-artifact@v4
+        uses:actions/upload-artifact@main
         with:
              name:MobileGlues
-             path:src/main/cpp/build/libmobileglues.so
+             path:build/*.so
         
