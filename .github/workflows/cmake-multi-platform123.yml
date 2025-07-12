@@ -1,93 +1,45 @@
-name: Build Android arm64-v8a libmobileglues.so
+name: Build Android ARM64
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      ndk-version:
+        description: 'Select NDK version'
+        default: '25c'
+        required: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: Windows-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
-          submodules: recursive  # 如果项目有子模块，启用递归克隆
+          submodules: recursive  # 获取所有子模块
 
-      - name: 安装基础依赖
+      - name: Setup Android NDK
+        uses: android-actions/setup-android-ndk@v2
+        with:
+          ndk-version: ${{ github.event.inputs.ndk-version }}
+          android-version: 33  # 设置最低API级别
+
+      - name: Configure CMake
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            make \
-            git \
-            clang \
-            gcc-aarch64-linux-gnu \  # 交叉编译器（非 NDK）
-            libc6-dev-i386 \         # 辅助工具链依赖
-            wget \
-            tar
+          mkdir -p build/android-arm64
+          cd build/android-arm64
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=${{ env.ANDROID_NDK }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-21 \
+            -DCMAKE_BUILD_TYPE=Release
 
-      - name: 下载 Bionic 头文件（Android 运行时）
-        id: bionic
+      - name: Build Library
         run: |
-          # 从 AOSP 镜像下载 Bionic 头文件（选择与目标 API 级别匹配的版本，如 API 33）
-          # 参考：https://android.googlesource.com/platform/bionic/
-          BIONIC_VERSION="android-13.0.0_rXX"  # 替换为实际需要的版本
-          BIONIC_URL="https://github.com/android/platform_bionic/archive/refs/tags/${BIONIC_VERSION}.tar.gz"
-          
-          mkdir -p ${{ github.workspace }}/bionic
-          wget -qO- "${BIONIC_URL}" | tar -xz --strip-components=1 -C ${{ github.workspace }}/bionic
-          
-          # 提取头文件到临时目录（仅保留必要的头文件）
-          mkdir -p ${{ github.workspace }}/android-headers
-          cp -r ${{ github.workspace }}/bionic/include ${{ github.workspace }}/android-headers/
-          echo "bionic_headers=${{ github.workspace }}/android-headers" >> $GITHUB_OUTPUT
+          cd build/android-arm64
+          cmake --build . --config Release
 
-      - name: 配置交叉编译环境
-        id: env
-        run: |
-          # 定义交叉编译参数
-          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CXX=aarch64-linux-gnu-g++" >> $GITHUB_ENV
-          echo "AR=aarch64-linux-gnu-ar" >> $GITHUB_ENV
-          echo "STRIP=aarch64-linux-gnu-strip" >> $GITHUB_ENV
-          
-          # 定义 Android 系统根目录（sysroot）
-          SYSROOT="${{ github.workspace }}/android-sysroot"
-          mkdir -p "${SYSROOT}/usr/include" "${SYSROOT}/usr/lib/aarch64-linux-gnu"
-          
-          # 复制 Bionic 头文件到 sysroot
-          cp -r "${{ steps.bionic.outputs.bionic_headers }}"/include/* "${SYSROOT}/usr/include/"
-          
-          # 下载 Bionic 标准库（libc.so、libm.so 等，需匹配架构）
-          # 参考：https://android.googlesource.com/platform/bionic/libc/
-          LIBC_URL="https://github.com/android/platform_bionic/raw/${BIONIC_VERSION}/libc/libc.so"
-          LIBM_URL="https://github.com/android/platform_bionic/raw/${BIONIC_VERSION}/libc/libm.so"
-          wget -qO "${SYSROOT}/usr/lib/aarch64-linux-gnu/libc.so" "${LIBC_URL}"
-          wget -qO "${SYSROOT}/usr/lib/aarch64-linux-gnu/libm.so" "${LIBM_URL}"
-          
-          echo "SYSROOT=${SYSROOT}" >> $GITHUB_ENV
-
-      - name: 构建 libmobileglues.so
-        run: |
-          # 进入项目目录（根据实际路径调整）
-          cd ${{ github.workspace }}/path/to/project  # 替换为实际源码路径
-          
-          # 执行构建命令（示例为 Makefile，需根据实际构建系统调整）
-          make clean
-          make \
-            CC=${{ env.CC }} \
-            CXX=${{ env.CXX }} \
-            AR=${{ env.AR }} \
-            STRIP=${{ env.STRIP }} \
-            SYSROOT=${{ env.SYSROOT }} \
-            ANDROID_ARCH=arm64-v8a \
-            -j$(nproc)  # 并行编译加速
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v3
-        if: always()  # 即使构建失败也上传日志
+      - name: Archive Artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: libmobileglues-arm64-v8a
-          path: ${{ github.workspace }}/path/to/project/libmobileglues.so  # 替换为实际生成的 so 路径
-          retention-days: 7  # 保留 7 天
+          path: build/android-arm64/libMobileGlues.so
