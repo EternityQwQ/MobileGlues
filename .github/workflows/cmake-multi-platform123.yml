@@ -1,4 +1,4 @@
-name: Build
+name: Build Android ARM64
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           submodules: recursive  # 获取所有子模块
 
@@ -39,7 +39,7 @@ jobs:
           cmake --build . --config Release
 
       - name: Archive Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: libmobileglues-arm64-v8a
           path: build/android-arm64/libMobileGlues.so
