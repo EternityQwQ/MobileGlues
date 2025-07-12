@@ -1,11 +1,11 @@
-name: Build Android ARM64
+name: Build Android arm64-v8a
 
 on:
   workflow_dispatch:
     inputs:
-      ndk-version:
-        description: 'Select NDK version'
-        default: '25c'
+      target_arch:
+        description: 'Target Architecture'
+        default: 'arm64-v8a'
         required: true
 
 jobs:
@@ -15,31 +15,57 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          submodules: recursive  # 获取所有子模块
+          submodules: recursive  # 初始化子模块
 
-      - name: Setup Android NDK
-        uses: android-actions/setup-android-ndk@v2
-        with:
-          ndk-version: ${{ github.event.inputs.ndk-version }}
-          android-version: 33  # 设置最低API级别
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang llvm \
+            cmake ninja-build \
+            python3 python3-pip \
+            libx11-dev libxi-dev libxrandr-dev
+
+      - name: Download Android Toolchain
+        run: |
+          TOOLCHAIN_URL="https://dl.google.com/android/repository/android-ndk-r25b-linux-x86_64.zip"
+          TOOLCHAIN_DIR="$HOME/android-toolchain"
+          
+          mkdir -p $TOOLCHAIN_DIR
+          curl -L $TOOLCHAIN_URL | tar xz -C $TOOLCHAIN_DIR --strip-components=1
+          
+          # 创建符号链接（根据实际工具链版本调整）
+          ln -s $TOOLCHAIN_DIR/toolchains/llvm/prebuilt/linux-x86_64 $TOOLCHAIN_DIR/llvm
 
       - name: Configure CMake
+        env:
+          CC: ${{ env.TOOLCHAIN_DIR }}/llvm/bin/clang
+          CXX: ${{ env.TOOLCHAIN_DIR }}/llvm/bin/clang++
+          AR: ${{ env.TOOLCHAIN_DIR }}/llvm/bin/llvm-ar
+          RANLIB: ${{ env.TOOLCHAIN_DIR }}/llvm/bin/llvm-ranlib
+          ANDROID_ABI: ${{ github.event.inputs.target_arch }}
+          ANDROID_PLATFORM: android-21
+          ANDROID_TOOLCHAIN: clang
+          ANDROID_STL: c++_shared
+          # 关键参数：禁用NDK检测
+          MOBILE_GLUES_NO_NDK: 1
         run: |
-          mkdir -p build/android-arm64
-          cd build/android-arm64
+          mkdir build && cd build
           cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.ANDROID_NDK }}/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-21 \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_DIR/llvm/android.toolchain.cmake \
+            -DANDROID_ABI=${ANDROID_ABI} \
+            -DANDROID_PLATFORM=${ANDROID_PLATFORM} \
+            -DANDROID_TOOLCHAIN=${ANDROID_TOOLCHAIN} \
+            -DANDROID_STL=${ANDROID_STL}
 
-      - name: Build Library
+      - name: Build
         run: |
-          cd build/android-arm64
-          cmake --build . --config Release
+          cd build
+          cmake --build . --config Release --parallel
 
-      - name: Archive Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libmobileglues-arm64-v8a
-          path: build/android-arm64/libMobileGlues.so
+          name: mobileglues-arm64-v8a
+          path: build/lib/libmobileglues.so
