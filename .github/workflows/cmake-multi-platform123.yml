@@ -18,7 +18,7 @@ jobs:
           submodules: recursive  # 获取所有子模块
 
       - name: Setup Android NDK
-        uses: android-actions/setup-android-ndk@v4
+        uses: android-actions/setup-android-ndk@v3
         with:
           ndk-version: ${{ github.event.inputs.ndk-version }}
           android-version: 33  # 设置最低API级别
