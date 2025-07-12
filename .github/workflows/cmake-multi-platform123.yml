@@ -1,60 +1,104 @@
-name: Build Android Native Library
+name: Android Native Build Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]  # 支持多分支构建
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/android.yml'  # 仅当相关文件变更时触发
   pull_request:
     branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
-  build:
+  build-android:
+    name: Build for ${{ matrix.abi }} (${{ matrix.api_level }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false  # 允许部分架构失败
       matrix:
         abi: [armeabi-v7a, arm64-v8a, x86, x86_64]
+        api_level: [21, 23, 26, 29, 30, 31, 33]  # 测试多个API级别兼容性
+        exclude:
+          - abi: armeabi-v7a
+            api_level: 33  # 部分旧架构不支持最新API
+          - abi: x86
+            api_level: 33
 
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v3
       with:
-        submodules: recursive  # 获取SPIRV-Cross等子模块
+        submodules: recursive  # 确保拉取SPIRV-Cross子模块
+        fetch-depth: 0       # 获取完整历史记录（用于Git版本信息）
 
-    - name: Set up JDK 11
+    - name: Setup JDK
       uses: actions/setup-java@v3
       with:
-        java-version: '11'
-        distribution: 'adopt'
+        java-version: '17'   # 升级到Java 17
+        distribution: 'temurin'
 
-    - name: Install Android NDK
+    - name: Install Android SDK
+      uses: android-actions/setup-android-sdk@v2
+      with:
+        api-level: 33        # 安装最新稳定版SDK
+        tools-only: true     # 仅安装基础工具链
+        cache: true          # 启用SDK缓存
+
+    - name: Setup Android NDK
       uses: android-actions/setup-android-ndk@v2
       with:
-        ndk-version: r25c  # 使用仓库指定的NDK版本
+        ndk-version: r25c    # 使用指定NDK版本
+        ndk-path: ${{ env.ANDROID_NDK_HOME }}
 
     - name: Setup CMake
       uses: actions/setup-cmake@v1
       with:
-        cmake-version: '3.22.0'  # 根据项目需求选择版本
+        cmake-version: '3.25.0'  # 更新到最新稳定版
 
-    - name: Configure CMake
+    - name: Prepare Build Environment
       run: |
-        mkdir -p ./build/android/${{ matrix.abi }}
-        cd ./build/android/${{ matrix.abi }}
+        # 创建构建目录
+        mkdir -p android-build
+        cd android-build
         
+        # 生成构建文件
         cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=${{ env.ANDROID_NDK }}/build/cmake/android.toolchain.cmake \
+          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=${{ matrix.abi }} \
-          -DANDROID_PLATFORM=android-21 \
+          -DANDROID_NATIVE_API_LEVEL=${{ matrix.api_level }} \
+          -DANDROID_TOOLCHAIN=clang \
           -DANDROID_STL=c++_shared \
           -DCMAKE_BUILD_TYPE=Release \
-          -DMG_MOBILEGLUES_VERSION=1260  # 根据实际版本修改
+          -DMG_MOBILEGLUES_VERSION=1260 \
+          -DSPV_CROSS_PATH=${ANDROID_NDK_HOME}/sources/third_party/spirv-cross  # 显式指定SPIRV-Cross路径
 
-    - name: Build
+    - name: Compile Native Code
       run: |
-        cd ./build/android/${{ matrix.abi }}
-        cmake --build . --config Release
+        cd android-build
+        cmake --build . --config Release --parallel $(nproc)  # 并行编译加速
 
-    - name: Archive artifacts
+    - name: Run Unit Tests (Optional)
+      if: matrix.api_level == 33 && matrix.abi == 'arm64-v8a'  # 仅在特定配置下运行测试
+      run: |
+        cd android-build
+        ctest --output-on-failure
+
+    - name: Archive Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: libmobileglues-${{ matrix.abi }}
-        path: build/android/${{ matrix.abi }}/Release/*.so
+        name: mobileglues-${{ matrix.abi }}-api${{ matrix.api_level }}
+        path: android-build/Release/*.so
+        retention-days: 7  # 保留7天
+
+    - name: Upload to GitHub Releases (Optional)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: android-build/Release/*.so
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Clean Up
+      run: rm -rf android-build  # 构建完成后清理临时目录
