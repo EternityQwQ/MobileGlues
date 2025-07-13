@@ -19,7 +19,6 @@ void init_settings() {
     global_settings.ext_gl43 = 0;
     global_settings.ext_compute_shader = 0;
     global_settings.max_glsl_cache_size = 30 * 1024 * 1024;
-    global_settings.enable_compatible_mode = 0;
     global_settings.multidraw_mode = multidraw_mode_t::DrawElements;
 #else
     
@@ -136,8 +135,6 @@ void init_settings() {
     
     global_settings.max_glsl_cache_size = maxGlslCacheSize;
 
-    global_settings.enable_compatible_mode = enableCompatibleMode;
-
     global_settings.multidraw_mode = multidrawMode;
 #endif
     
@@ -172,7 +169,6 @@ void init_settings() {
     LOG_V("[MobileGlues] Setting: enableExtComputeShader = %s", global_settings.ext_compute_shader ? "true" : "false")
     LOG_V("[MobileGlues] Setting: enableExtGL43          = %s", global_settings.ext_gl43 ? "true" : "false")
     LOG_V("[MobileGlues] Setting: maxGlslCacheSize       = %i", global_settings.max_glsl_cache_size / 1024 / 1024)
-    LOG_V("[MobileGlues] Setting: enableCompatibleMode   = %s", global_settings.enable_compatible_mode ? "true" : "false")
     LOG_V("[MobileGlues] Setting: multidrawMode          = %s", draw_mode_str.c_str())
 }
 

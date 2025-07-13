@@ -31,7 +31,6 @@ struct global_settings_t {
     int ext_gl43; // 0, 1
     int ext_compute_shader; // 0, 1
     size_t max_glsl_cache_size; // 0~
-    int enable_compatible_mode; // 0, 1
     multidraw_mode_t multidraw_mode; // 0, 1, 2, 3, 4
 };
 
