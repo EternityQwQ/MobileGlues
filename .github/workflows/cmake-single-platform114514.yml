@@ -1,0 +1,43 @@
+name: Build SO with CMake
+
+on:
+  push:
+    branches: [ dev-es ]
+  pull_request:
+    branches: [ dev-es ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      # 如需 Android 交叉编译，需安装 NDK 并设置工具链
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Configure CMake for Android
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-21 \
+            -G Ninja
+
+      - name: Build SO
+        run: cmake --build build
+
+      - name: Upload SO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-library
+          path: build/**/*.so
