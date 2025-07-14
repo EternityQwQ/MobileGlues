@@ -1,0 +1,33 @@
+name: Build core library (Linux, CMake)
+
+on:
+  push:
+    branches: [dev-es]
+  pull_request:
+    branches: [dev-es]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+
+      - name: Configure CMake
+        run: |
+          cmake -S src/main/cpp -B build-linux -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build core library
+        run: |
+          cmake --build build-linux --config Release -- -j$(nproc)
+
+      - name: Upload core library artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-core-lib
+          path: build-linux/**/*.so
