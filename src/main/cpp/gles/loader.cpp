@@ -7,7 +7,7 @@
 #include "loader.h"
 #include "../includes.h"
 #include "loader.h"
-#include "../gl/gl.h"
+#include <GL/gl.h>
 #include "../gl/glext.h"
 #include "../gl/envvars.h"
 #include "../gl/log.h"
@@ -106,17 +106,20 @@ void *proc_address(void *lib, const char *name) {
 }
 
 void set_hardware() {
-    hardware = (hardware_t) calloc(1, sizeof(struct hardware_s));
+	hardware = new hardware_s;
     set_es_version();
+    if (hardware->es_version <= 310)
+        hardware->emulate_texture_buffer = true;
+    else
+		hardware->emulate_texture_buffer = false;
 }
 
 void init_gl_state() {
-    gl_state = (gl_state_t) calloc(1, sizeof(struct gl_state_s));
+	gl_state = new gl_state_s;
     set_gl_state_proxy_height(0);
     set_gl_state_proxy_width(0);
     set_gl_state_proxy_intformat(0);
 }
-
 
 void LogOpenGLExtensions() {
     const GLubyte *raw_extensions = glGetString(GL_EXTENSIONS);
@@ -194,7 +197,7 @@ void InitGLESCapabilities() {
         AppendExtension("GL_ARB_buffer_storage");
     }
 
-    if (g_gles_caps.GL_EXT_disjoint_timer_query) {
+    if (g_gles_caps.GL_EXT_disjoint_timer_query && global_settings.ext_timer_query) {
         AppendExtension("GL_ARB_timer_query");
         AppendExtension("GL_EXT_timer_query");
     }
@@ -205,6 +208,10 @@ void InitGLESCapabilities() {
 
     if (global_settings.ext_compute_shader) {
         AppendExtension("GL_ARB_compute_shader");
+    }
+
+    if (g_gles_caps.major > 3 || (g_gles_caps.major == 3 && g_gles_caps.minor >= 1)) {
+        AppendExtension("GL_ARB_vertex_attrib_binding");
     }
 }
 

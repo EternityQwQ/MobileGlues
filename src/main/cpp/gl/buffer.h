@@ -3,9 +3,10 @@
 //
 
 #ifndef MOBILEGLUES_BUFFER_H
-
+#define GL_GLEXT_PROTOTYPES
 #include "../includes.h"
-#include "gl.h"
+#include "../../config/settings.h"
+#include <GL/gl.h>
 #include "glcorearb.h"
 #include "log.h"
 #include "../gles/loader.h"
@@ -77,9 +78,13 @@ GLAPI GLAPIENTRY GLboolean glUnmapBuffer(GLenum target);
 
 GLAPI GLAPIENTRY void *glMapBuffer(GLenum target, GLenum access);
 
+GLAPI GLAPIENTRY void* glMapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
+
 GLAPI GLAPIENTRY void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
 
 GLAPI GLAPIENTRY void glBufferStorage(GLenum target, GLsizeiptr size, const void* data, GLbitfield flags);
+
+GLAPI GLAPIENTRY void glFlushMappedBufferRange(GLenum target, GLintptr offset, GLsizeiptr length);
 
 GLAPI GLAPIENTRY void glGenVertexArrays(GLsizei n, GLuint *arrays);
 

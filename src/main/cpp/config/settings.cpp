@@ -35,7 +35,7 @@ void init_settings() {
     NoErrorConfig noErrorConfig = success ? static_cast<NoErrorConfig>(config_get_int("enableNoError")) : NoErrorConfig::Auto;
     bool enableExtGL43 = success ? (config_get_int("enableExtGL43") != 0) : false;
     bool enableExtComputeShader = success ? (config_get_int("enableExtComputeShader") != 0) : false;
-    int enableCompatibleMode = success ? config_get_int("enableCompatibleMode") : 0;
+    bool enableExtTimerQuery = success ? (config_get_int("enableExtTimerQuery") != 0) : false;
     multidraw_mode_t multidrawMode = success ? static_cast<multidraw_mode_t>(config_get_int("multidrawMode")) : multidraw_mode_t::Auto;
     AngleDepthClearFixMode angleDepthClearFixMode = success ? static_cast<AngleDepthClearFixMode>(config_get_int("angleDepthClearFixMode")) : AngleDepthClearFixMode::Disabled;
 
@@ -56,9 +56,6 @@ void init_settings() {
     if (static_cast<int>(angleDepthClearFixMode) < 0 || static_cast<int>(angleDepthClearFixMode) >= static_cast<int>(AngleDepthClearFixMode::MaxValue)) {
         angleDepthClearFixMode = AngleDepthClearFixMode::Disabled;
     }
-    if (enableCompatibleMode < 0 || enableCompatibleMode > 1) {
-        enableCompatibleMode = 0;
-    }
 
     int fclVersion = 0;
     GetEnvVarInt("FCL_VERSION_CODE", &fclVersion, 0);
@@ -75,8 +72,8 @@ void init_settings() {
         noErrorConfig = NoErrorConfig::Auto;
         enableExtGL43 = false;
         enableExtComputeShader = false;
+        enableExtTimerQuery = true;
         maxGlslCacheSize = 0;
-        enableCompatibleMode = 0;
         angleDepthClearFixMode = AngleDepthClearFixMode::Disabled;
     }
 
@@ -85,7 +82,20 @@ void init_settings() {
     const char* gpu_cstr = gpuString.c_str();
     LOG_D("GPU: %s", gpu_cstr ? gpu_cstr : "(unknown)")
 
+    int hasVk12 = hasVulkan12();
     int isQcom = isAdreno(gpu_cstr);
+    int is730 = isAdreno730(gpu_cstr);
+    int is740 = isAdreno740(gpu_cstr);
+    int is830 = isAdreno830(gpu_cstr);
+    bool isANGLESupported = checkIfANGLESupported(gpu_cstr);
+
+	LOG_D("Has Vulkan 1.2? = %s", hasVk12 ? "true" : "false")
+    LOG_D("Is Adreno? = %s", isQcom ? "true" : "false")
+    LOG_D("Is Adreno 730? = %s", is730 ? "true" : "false")
+    LOG_D("Is Adreno 740? = %s", is740 ? "true" : "false")
+	LOG_D("Is Adreno 830? = %s", is830 ? "true" : "false")
+	LOG_D("Is ANGLE supported? = %s", isANGLESupported ? "true" : "false")
+
     switch (angleConfig) {
         case AngleConfig::ForceDisable:
             finalAngleMode = AngleMode::Disabled;
@@ -98,31 +108,20 @@ void init_settings() {
             break;
             
         case AngleConfig::EnableIfPossible: {
-            int is740 = isAdreno740(gpu_cstr);
-
-            LOG_D("Is Adreno? = %s", isQcom ? "true" : "false")
-            LOG_D("Is Adreno 740? = %s", is740 ? "true" : "false")
-
-            finalAngleMode = is740 ? AngleMode::Disabled : AngleMode::Enabled;
+            finalAngleMode = isANGLESupported ? AngleMode::Enabled : AngleMode::Disabled;
             LOG_D("ANGLE: Conditionally %s", (finalAngleMode == AngleMode::Enabled) ? "enabled" : "disabled");
             break;
         }
             
         case AngleConfig::DisableIfPossible:
         default:
-            if (isQcom && !isAdreno740(gpu_cstr)) {
-                finalAngleMode = AngleMode::Enabled;
-                LOG_D("ANGLE: Enabled by default for Adreno");
-            } else {
-                finalAngleMode = AngleMode::Disabled;
-                LOG_D("ANGLE: Disabled by default for non-Adreno or Adreno 740");
-			}
-
+            finalAngleMode = AngleMode::Disabled;
             break;
     }
     
     global_settings.angle = finalAngleMode;
     LOG_D("Final ANGLE setting: %d", static_cast<int>(global_settings.angle))
+    global_settings.buffer_coherent_as_flush = (global_settings.angle == AngleMode::Disabled);
 
     if (global_settings.angle == AngleMode::Enabled) {
         setenv("LIBGL_GLES", "libGLESv2_angle.so", 1);
@@ -150,6 +149,7 @@ void init_settings() {
 
     global_settings.ext_gl43 = enableExtGL43;
     global_settings.ext_compute_shader = enableExtComputeShader;
+    global_settings.ext_timer_query = enableExtTimerQuery;
     global_settings.max_glsl_cache_size = maxGlslCacheSize;
     global_settings.multidraw_mode = multidrawMode;
     global_settings.angle_depth_clear_fix_mode = angleDepthClearFixMode;
@@ -177,10 +177,13 @@ void init_settings() {
           global_settings.ext_compute_shader ? "true" : "false")
     LOG_V("[MobileGlues] Setting: enableExtGL43          = %s", 
           global_settings.ext_gl43 ? "true" : "false")
+    LOG_V("[MobileGlues] Setting: enableExtTimerQuery          = %s", 
+          global_settings.ext_timer_query ? "true" : "false")
     LOG_V("[MobileGlues] Setting: maxGlslCacheSize       = %i", 
           static_cast<int>(global_settings.max_glsl_cache_size / 1024 / 1024))
     LOG_V("[MobileGlues] Setting: multidrawMode          = %s", draw_mode_str.c_str())
     LOG_V("[MobileGlues] Setting: angleDepthClearFixMode = %i", static_cast<int>(global_settings.angle_depth_clear_fix_mode))
+    LOG_V("[MobileGlues] Setting: bufferCoherentAsFlush = %i", static_cast<int>(global_settings.buffer_coherent_as_flush))
 }
 
 void init_settings_post() {

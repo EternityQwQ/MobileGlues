@@ -3,17 +3,17 @@
 //
 
 #include "../includes.h"
-#include "gl.h"
+#include <GL/gl.h>
 #include "glcorearb.h"
 #include "log.h"
 #include "../gles/loader.h"
 #include "mg.h"
-#include <GLES/gl32.h>
+#include <GLES3/gl32.h>
 
 #define DEBUG 0
 
-NATIVE_FUNCTION_HEAD(void, glActiveTexture, GLenum texture) NATIVE_FUNCTION_END_NO_RETURN(void, glActiveTexture, texture)
-NATIVE_FUNCTION_HEAD(void, glAttachShader, GLuint program, GLuint shader) NATIVE_FUNCTION_END_NO_RETURN(void, glAttachShader, program,shader)
+//NATIVE_FUNCTION_HEAD(void, glActiveTexture, GLenum texture) NATIVE_FUNCTION_END_NO_RETURN(void, glActiveTexture, texture)
+//NATIVE_FUNCTION_HEAD(void, glAttachShader, GLuint program, GLuint shader) NATIVE_FUNCTION_END_NO_RETURN(void, glAttachShader, program,shader)
 NATIVE_FUNCTION_HEAD(void, glBindAttribLocation, GLuint program, GLuint index, const GLchar *name) NATIVE_FUNCTION_END_NO_RETURN(void, glBindAttribLocation, program,index,name)
 //NATIVE_FUNCTION_HEAD(void, glBindBuffer, GLenum target, GLuint buffer) NATIVE_FUNCTION_END_NO_RETURN(void, glBindBuffer, target,buffer)
 //NATIVE_FUNCTION_HEAD(void, glBindFramebuffer, GLenum target, GLuint framebuffer) NATIVE_FUNCTION_END_NO_RETURN(void, glBindFramebuffer, target,framebuffer)
@@ -37,8 +37,8 @@ NATIVE_FUNCTION_HEAD(void, glCompressedTexImage2D, GLenum target, GLint level, G
 NATIVE_FUNCTION_HEAD(void, glCompressedTexSubImage2D, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data) NATIVE_FUNCTION_END_NO_RETURN(void, glCompressedTexSubImage2D, target,level,xoffset,yoffset,width,height,format,imageSize,data)
 //NATIVE_FUNCTION_HEAD(void, glCopyTexImage2D, GLenum target, GLint level, GLenum internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border) NATIVE_FUNCTION_END_NO_RETURN(void, glCopyTexImage2D, target,level,internalformat,x,y,width,height,border)
 //NATIVE_FUNCTION_HEAD(void, glCopyTexSubImage2D, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height) NATIVE_FUNCTION_END_NO_RETURN(void, glCopyTexSubImage2D, target,level,xoffset,yoffset,x,y,width,height)
-NATIVE_FUNCTION_HEAD(GLuint, glCreateProgram) NATIVE_FUNCTION_END(GLuint, glCreateProgram)
-NATIVE_FUNCTION_HEAD(GLuint, glCreateShader, GLenum type) NATIVE_FUNCTION_END(GLuint, glCreateShader, type)
+//NATIVE_FUNCTION_HEAD(GLuint, glCreateProgram) NATIVE_FUNCTION_END(GLuint, glCreateProgram)
+//NATIVE_FUNCTION_HEAD(GLuint, glCreateShader, GLenum type) NATIVE_FUNCTION_END(GLuint, glCreateShader, type)
 NATIVE_FUNCTION_HEAD(void, glCullFace, GLenum mode) NATIVE_FUNCTION_END_NO_RETURN(void, glCullFace, mode)
 //NATIVE_FUNCTION_HEAD(void, glDeleteBuffers, GLsizei n, const GLuint *buffers) NATIVE_FUNCTION_END_NO_RETURN(void, glDeleteBuffers, n,buffers)
 NATIVE_FUNCTION_HEAD(void, glDeleteFramebuffers, GLsizei n, const GLuint *framebuffers) NATIVE_FUNCTION_END_NO_RETURN(void, glDeleteFramebuffers, n,framebuffers)
@@ -141,7 +141,7 @@ NATIVE_FUNCTION_HEAD(void, glUniform4iv, GLint location, GLsizei count, const GL
 NATIVE_FUNCTION_HEAD(void, glUniformMatrix2fv, GLint location, GLsizei count, GLboolean transpose, const GLfloat *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniformMatrix2fv, location,count,transpose,value)
 NATIVE_FUNCTION_HEAD(void, glUniformMatrix3fv, GLint location, GLsizei count, GLboolean transpose, const GLfloat *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniformMatrix3fv, location,count,transpose,value)
 NATIVE_FUNCTION_HEAD(void, glUniformMatrix4fv, GLint location, GLsizei count, GLboolean transpose, const GLfloat *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniformMatrix4fv, location,count,transpose,value)
-NATIVE_FUNCTION_HEAD(void, glUseProgram, GLuint program) NATIVE_FUNCTION_END_NO_RETURN(void, glUseProgram, program)
+//NATIVE_FUNCTION_HEAD(void, glUseProgram, GLuint program) NATIVE_FUNCTION_END_NO_RETURN(void, glUseProgram, program)
 NATIVE_FUNCTION_HEAD(void, glValidateProgram, GLuint program) NATIVE_FUNCTION_END_NO_RETURN(void, glValidateProgram, program)
 NATIVE_FUNCTION_HEAD(void, glVertexAttrib1f, GLuint index, GLfloat x) NATIVE_FUNCTION_END_NO_RETURN(void, glVertexAttrib1f, index,x)
 NATIVE_FUNCTION_HEAD(void, glVertexAttrib1fv, GLuint index, const GLfloat *v) NATIVE_FUNCTION_END_NO_RETURN(void, glVertexAttrib1fv, index,v)
@@ -179,7 +179,7 @@ NATIVE_FUNCTION_HEAD(void, glUniformMatrix4x3fv, GLint location, GLsizei count, 
 NATIVE_FUNCTION_HEAD(void, glBlitFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter) NATIVE_FUNCTION_END_NO_RETURN(void, glBlitFramebuffer, srcX0,srcY0,srcX1,srcY1,dstX0,dstY0,dstX1,dstY1,mask,filter)
 //NATIVE_FUNCTION_HEAD(void, glRenderbufferStorageMultisample, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height) NATIVE_FUNCTION_END_NO_RETURN(void, glRenderbufferStorageMultisample, target,samples,internalformat,width,height)
 NATIVE_FUNCTION_HEAD(void, glFramebufferTextureLayer, GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer) NATIVE_FUNCTION_END_NO_RETURN(void, glFramebufferTextureLayer, target,attachment,texture,level,layer)
-NATIVE_FUNCTION_HEAD(void, glFlushMappedBufferRange, GLenum target, GLintptr offset, GLsizeiptr length) NATIVE_FUNCTION_END_NO_RETURN(void, glFlushMappedBufferRange, target,offset,length)
+//NATIVE_FUNCTION_HEAD(void, glFlushMappedBufferRange, GLenum target, GLintptr offset, GLsizeiptr length) NATIVE_FUNCTION_END_NO_RETURN(void, glFlushMappedBufferRange, target,offset,length)
 //NATIVE_FUNCTION_HEAD(void, glBindVertexArray, GLuint array) NATIVE_FUNCTION_END_NO_RETURN(void, glBindVertexArray, array)
 //NATIVE_FUNCTION_HEAD(void, glDeleteVertexArrays, GLsizei n, const GLuint *arrays) NATIVE_FUNCTION_END_NO_RETURN(void, glDeleteVertexArrays, n,arrays)
 //NATIVE_FUNCTION_HEAD(void, glGenVertexArrays, GLsizei n, GLuint *arrays) NATIVE_FUNCTION_END_NO_RETURN(void, glGenVertexArrays, n,arrays)
@@ -220,7 +220,7 @@ NATIVE_FUNCTION_HEAD(void, glGetActiveUniformBlockiv, GLuint program, GLuint uni
 NATIVE_FUNCTION_HEAD(void, glGetActiveUniformBlockName, GLuint program, GLuint uniformBlockIndex, GLsizei bufSize, GLsizei *length, GLchar *uniformBlockName) NATIVE_FUNCTION_END_NO_RETURN(void, glGetActiveUniformBlockName, program,uniformBlockIndex,bufSize,length,uniformBlockName)
 NATIVE_FUNCTION_HEAD(void, glUniformBlockBinding, GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding) NATIVE_FUNCTION_END_NO_RETURN(void, glUniformBlockBinding, program,uniformBlockIndex,uniformBlockBinding)
 NATIVE_FUNCTION_HEAD(void, glDrawArraysInstanced, GLenum mode, GLint first, GLsizei count, GLsizei instancecount) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawArraysInstanced, mode,first,count,instancecount)
-NATIVE_FUNCTION_HEAD(void, glDrawElementsInstanced, GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsInstanced, mode,count,type,indices,instancecount)
+//NATIVE_FUNCTION_HEAD(void, glDrawElementsInstanced, GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsInstanced, mode,count,type,indices,instancecount)
 NATIVE_FUNCTION_HEAD(GLsync, glFenceSync, GLenum condition, GLbitfield flags) NATIVE_FUNCTION_END(GLsync, glFenceSync, condition,flags)
 NATIVE_FUNCTION_HEAD(GLboolean, glIsSync, GLsync sync) NATIVE_FUNCTION_END(GLboolean, glIsSync, sync)
 NATIVE_FUNCTION_HEAD(void, glDeleteSync, GLsync sync) NATIVE_FUNCTION_END_NO_RETURN(void, glDeleteSync, sync)
@@ -344,7 +344,7 @@ NATIVE_FUNCTION_HEAD(void, glBlendFunci, GLuint buf, GLenum src, GLenum dst) NAT
 NATIVE_FUNCTION_HEAD(void, glBlendFuncSeparatei, GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha) NATIVE_FUNCTION_END_NO_RETURN(void, glBlendFuncSeparatei, buf,srcRGB,dstRGB,srcAlpha,dstAlpha)
 NATIVE_FUNCTION_HEAD(void, glColorMaski, GLuint index, GLboolean r, GLboolean g, GLboolean b, GLboolean a) NATIVE_FUNCTION_END_NO_RETURN(void, glColorMaski, index,r,g,b,a)
 NATIVE_FUNCTION_HEAD(GLboolean, glIsEnabledi, GLenum target, GLuint index) NATIVE_FUNCTION_END(GLboolean, glIsEnabledi, target,index)
-NATIVE_FUNCTION_HEAD(void, glDrawElementsBaseVertex, GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsBaseVertex, mode,count,type,indices,basevertex)
+//NATIVE_FUNCTION_HEAD(void, glDrawElementsBaseVertex, GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsBaseVertex, mode,count,type,indices,basevertex)
 NATIVE_FUNCTION_HEAD(void, glDrawRangeElementsBaseVertex, GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices, GLint basevertex) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawRangeElementsBaseVertex, mode,start,end,count,type,indices,basevertex)
 NATIVE_FUNCTION_HEAD(void, glDrawElementsInstancedBaseVertex, GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex) NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsInstancedBaseVertex, mode,count,type,indices,instancecount,basevertex)
 NATIVE_FUNCTION_HEAD(void, glFramebufferTexture, GLenum target, GLenum attachment, GLuint texture, GLint level) NATIVE_FUNCTION_END_NO_RETURN(void, glFramebufferTexture, target,attachment,texture,level)
@@ -367,4 +367,4 @@ NATIVE_FUNCTION_HEAD(void, glGetSamplerParameterIuiv, GLuint sampler, GLenum pna
 //NATIVE_FUNCTION_HEAD(void, glTexBuffer, GLenum target, GLenum internalformat, GLuint buffer) NATIVE_FUNCTION_END_NO_RETURN(void, glTexBuffer, target,internalformat,buffer)
 //NATIVE_FUNCTION_HEAD(void, glTexBufferRange, GLenum target, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizeiptr size) NATIVE_FUNCTION_END_NO_RETURN(void, glTexBufferRange, target,internalformat,buffer,offset,size)
 NATIVE_FUNCTION_HEAD(void, glTexStorage3DMultisample, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations) NATIVE_FUNCTION_END_NO_RETURN(void, glTexStorage3DMultisample, target,samples,internalformat,width,height,depth,fixedsamplelocations)
-NATIVE_FUNCTION_HEAD(void*, glMapBufferRange, GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access) NATIVE_FUNCTION_END(void*, glMapBufferRange, target,offset,length,access)
+//NATIVE_FUNCTION_HEAD(void*, glMapBufferRange, GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access) NATIVE_FUNCTION_END(void*, glMapBufferRange, target,offset,length,access)

@@ -5,19 +5,13 @@
 #ifndef MOBILEGLUES_TEXTURE_H
 #define MOBILEGLUES_TEXTURE_H
 
+#include <unordered_map>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "gl.h"
-
-struct texture_t {
-    GLenum target;
-    GLuint texture;
-    GLenum internal_format;
-    GLenum format;
-    GLint swizzle_param[4];
-};
+#include <GL/gl.h>
 
 GLAPI GLAPIENTRY void glTexParameterf(GLenum target, GLenum pname, GLfloat param);
 GLAPI GLAPIENTRY void glTexImage1D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLint border, GLenum format, GLenum type, const GLvoid* pixels);
@@ -47,5 +41,19 @@ GLAPI GLAPIENTRY void glPixelStorei(GLenum pname, GLint param);
 #ifdef __cplusplus
 }
 #endif
+
+struct texture_t {
+    GLenum target;
+    GLuint texture;
+    GLenum internal_format;
+    GLenum format;
+    GLint swizzle_param[4];
+    GLsizei width;
+    GLsizei height;
+};
+
+extern std::unordered_map<GLuint, texture_t> g_textures;
+
+GLenum mgGetTexTarget(GLuint id);
 
 #endif
