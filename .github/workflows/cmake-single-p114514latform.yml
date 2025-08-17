@@ -1,0 +1,39 @@
+name: Build Shared Library (.so) via CMake
+
+on:
+  push:
+    branches: [dev-es]
+  pull_request:
+    branches: [dev-es]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache CMake build
+        uses: actions/cache@v3
+        with:
+          path: build
+          key: ${{ runner.os }}-cmake-build-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-build-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+
+      - name: Configure and build
+        run: |
+          mkdir -p build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --config Release -- -j$(nproc)
+
+      - name: Upload .so artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MobileGlues-so-build
+          path: build/**/*.so
