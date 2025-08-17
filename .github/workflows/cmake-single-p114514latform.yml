@@ -13,14 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache CMake build
-        uses: actions/cache@v3
-        with:
-          path: build
-          key: ${{ runner.os }}-cmake-build-${{ hashFiles('**/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-cmake-build-
-
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -29,7 +21,7 @@ jobs:
       - name: Configure and build
         run: |
           mkdir -p build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake -DCMAKE_BUILD_TYPE=Release ../src/main/cpp
           cmake --build . --config Release -- -j$(nproc)
 
       - name: Upload .so artifacts
