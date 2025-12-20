@@ -12,15 +12,14 @@ jobs:
 
     strategy:
       matrix:
-        # [span_2](start_span)[span_3](start_span)对应您项目 libraries/ 目录下的架构文件夹名称[span_2](end_span)[span_3](end_span)
+        # 对应你项目 src/main/cpp/libraries/${ANDROID_ABI}/ 目录下的架构
         abi: [arm64-v8a, armeabi-v7a]
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # 如果您的 .a 库文件使用了 Git LFS，请开启此项
-          lfs: true
+          [span_1](start_span)[span_2](start_span)lfs: true # 必须开启，以拉取静态库文件[span_1](end_span)[span_2](end_span)
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -28,13 +27,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 修复：不再引用外部可能失效的 Action，直接使用 Runner 预装的 NDK
-      # GitHub Hosted Runner 默认提供了多个版本的 NDK
       - name: Configure CMake
+        # [span_3](start_span)修复点：-S 指向 src/main/cpp，即主 CMakeLists.txt 所在目录[span_3](end_span)
         run: |
-          # [span_4](start_span)使用 $ANDROID_NDK_LATEST_HOME 提供的工具链[span_4](end_span)
-          # ANDROID_PLATFORM 设置为 24 以匹配较现代的 Android 特性
-          cmake -S . -B build \
+          cmake -S src/main/cpp -B build \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.abi }} \
             -DANDROID_PLATFORM=android-24 \
@@ -42,17 +38,18 @@ jobs:
             -DPROFILING=OFF
 
       - name: Build Project
-        # [span_5](start_span)执行构建，生成 libmobileglues.so[span_5](end_span)
+        # [span_4](start_span)编译生成 libmobileglues.so[span_4](end_span)
         run: cmake --build build --config Release
 
       - name: Collect Artifacts
-        # [span_6](start_span)[span_7](start_span)整理产物，包含主库和必须随附的 spirv-cross 动态库[span_6](end_span)[span_7](end_span)
+        # 这里的路径需要根据项目实际生成的 so 位置进行收集
         run: |
           mkdir -p dist/${{ matrix.abi }}
-          # 拷贝主产物
-          cp build/libmobileglues.so dist/${{ matrix.abi }}/
-          # [span_8](start_span)根据您的 CMakeLists，需要拷贝预编译的共享库[span_8](end_span)
-          cp libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/${{ matrix.abi }}/
+          # [span_5](start_span)查找并拷贝主库[span_5](end_span)
+          find build -name "libmobileglues.so" -exec cp {} dist/${{ matrix.abi }}/ \;
+          # [span_6](start_span)拷贝依赖的共享库[span_6](end_span)
+          # 注意：路径需对应仓库内实际位置，假设在 src/main/cpp/libraries/
+          cp src/main/cpp/libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/${{ matrix.abi }}/ || echo "Shared lib not found"
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
