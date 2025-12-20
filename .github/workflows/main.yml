@@ -1,4 +1,4 @@
-name: Android CI Build
+name: Android Build CI
 
 on:
   push:
@@ -9,14 +9,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
-        # 根据项目支持的架构进行构建
+        # [span_2](start_span)[span_3](start_span)对应您项目 libraries/ 目录下的架构文件夹名称[span_2](end_span)[span_3](end_span)
         abi: [arm64-v8a, armeabi-v7a]
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # 如果您的 .a 库文件使用了 Git LFS，请开启此项
+          lfs: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -24,35 +28,34 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android NDK
-        uses: n0rt3n/setup-ndk@v1
-        with:
-          # 建议使用 r23b 或更高版本以支持完整的 C++20 
-          ndk-version: r25c
-
+      # 修复：不再引用外部可能失效的 Action，直接使用 Runner 预装的 NDK
+      # GitHub Hosted Runner 默认提供了多个版本的 NDK
       - name: Configure CMake
-        # [span_4](start_span)注意：必须传入 ANDROID_ABI 变量，因为 CMakeLists.txt 中依赖它寻找路径[span_4](end_span)
         run: |
+          # [span_4](start_span)使用 $ANDROID_NDK_LATEST_HOME 提供的工具链[span_4](end_span)
+          # ANDROID_PLATFORM 设置为 24 以匹配较现代的 Android 特性
           cmake -S . -B build \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.abi }} \
             -DANDROID_PLATFORM=android-24 \
             -DCMAKE_BUILD_TYPE=Release \
             -DPROFILING=OFF
 
-      - name: Build Library
+      - name: Build Project
+        # [span_5](start_span)执行构建，生成 libmobileglues.so[span_5](end_span)
         run: cmake --build build --config Release
 
-      - name: Verify and Collect Artifacts
+      - name: Collect Artifacts
+        # [span_6](start_span)[span_7](start_span)整理产物，包含主库和必须随附的 spirv-cross 动态库[span_6](end_span)[span_7](end_span)
         run: |
-          mkdir -p output/${{ matrix.abi }}
-          # [span_5](start_span)收集项目生成的主库[span_5](end_span)
-          cp build/libmobileglues.so output/${{ matrix.abi }}/
-          # [span_6](start_span)收集依赖的共享库[span_6](end_span)
-          cp libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so output/${{ matrix.abi }}/
+          mkdir -p dist/${{ matrix.abi }}
+          # 拷贝主产物
+          cp build/libmobileglues.so dist/${{ matrix.abi }}/
+          # [span_8](start_span)根据您的 CMakeLists，需要拷贝预编译的共享库[span_8](end_span)
+          cp libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/${{ matrix.abi }}/
 
-      - name: Upload Build Artifacts
+      - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: mobileglues-binaries-${{ matrix.abi }}
-          path: output/
+          name: MobileGlues-${{ matrix.abi }}
+          path: dist/
