@@ -26,7 +26,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Android NDK
-        uses: nwidger/setup-android-ndk@v1
+        uses: nwidger/setup-android-ndk@v3
         with:
           ndk-version: r25c # 建议根据项目需求调整版本
 
