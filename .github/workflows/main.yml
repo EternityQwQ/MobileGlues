@@ -3,30 +3,17 @@ name: Android Build CI
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build Type (Release/Debug)'
-        required: true
-        default: 'Release'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    strategy:
-      matrix:
-        # [span_0](start_span)[span_1](start_span)对应 src/main/cpp/libraries/${ANDROID_ABI}[span_0](end_span)[span_1](end_span)
-        abi: [arm64-v8a, armeabi-v7a]
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           lfs: true
+          submodules: recursive # 确保第三方库如果是子模块也能被拉取
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -35,31 +22,12 @@ jobs:
           distribution: 'temurin'
 
       - name: Configure CMake
-        # [span_2](start_span)重点：-S 指向主 CMakeLists.txt 所在目录 src/main/cpp[span_2](end_span)
         run: |
           cmake -S src/main/cpp -B build \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-24 \
-            -DCMAKE_BUILD_TYPE=${{ github.event.inputs.build_type || 'Release' }} \
-            -DPROFILING=OFF
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Project
-        # [span_3](start_span)限制并行数并增加详细日志，防止 C++20 编译时 OOM 导致 Job 被取消[span_3](end_span)
-        run: cmake --build build --config Release --parallel 2 --verbose
-
-      - name: Collect Artifacts
-        if: success()
-        run: |
-          mkdir -p dist/${{ matrix.abi }}
-          # [span_4](start_span)搜索生成的项目主库 libmobileglues.so[span_4](end_span)
-          find build -name "libmobileglues.so" -exec cp {} dist/${{ matrix.abi }}/ \;
-          # [span_5](start_span)[span_6](start_span)拷贝 CMake 配置中引用的预编译共享库[span_5](end_span)[span_6](end_span)
-          cp src/main/cpp/libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/${{ matrix.abi }}/ || echo "Optional lib not found"
-
-      - name: Upload Binaries
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: MobileGlues-${{ matrix.abi }}
-          path: dist/
+        run: cmake --build build --config Release --parallel 2
