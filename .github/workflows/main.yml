@@ -5,7 +5,6 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  # 加入手动触发功能
   workflow_dispatch:
     inputs:
       build_type:
@@ -16,17 +15,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        # [span_1](start_span)对应 src/main/cpp/libraries/${ANDROID_ABI}/ 目录下的架构[span_1](end_span)
         abi: [arm64-v8a, armeabi-v7a]
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          [span_2](start_span)[span_3](start_span)lfs: true # 确保拉取 libraries/ 中的 .a 静态库[span_2](end_span)[span_3](end_span)
+          lfs: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -35,8 +32,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Configure CMake
-        # -[span_4](start_span)S 指向 src/main/cpp[span_4](end_span)
-        # [span_5](start_span)使用项目定义的 C++20 标准[span_5](end_span)
+        # 注意此处的 | 符号，它允许下方编写多行命令
         run: |
           cmake -S src/main/cpp -B build \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
@@ -46,16 +42,15 @@ jobs:
             -DPROFILING=OFF
 
       - name: Build Project
-        # [span_6](start_span)编译生成 libmobileglues.so[span_6](end_span)
+        # [span_1](start_span)使用项目名 mobileglues 进行构建[span_1](end_span)
         run: cmake --build build --config Release
 
       - name: Collect Artifacts
         run: |
           mkdir -p dist/${{ matrix.abi }}
-          # [span_7](start_span)搜索并拷贝生成的共享库[span_7](end_span)
           find build -name "libmobileglues.so" -exec cp {} dist/${{ matrix.abi }}/ \;
-          # [span_8](start_span)拷贝必须随附的预编译共享库[span_8](end_span)
-          cp src/main/cpp/libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/${{ matrix.abi }}/ || echo "Shared lib not found"
+          # [span_2](start_span)拷贝预编译的库文件[span_2](end_span)
+          cp src/main/cpp/libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/${{ matrix.abi }}/ || echo "Optional lib not found"
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
