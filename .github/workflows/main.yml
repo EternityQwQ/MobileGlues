@@ -17,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        abi: [arm64-v8a, armeabi-v7a]
+        abi: [arm64-v8a]
 
     steps:
       - name: Checkout Code
