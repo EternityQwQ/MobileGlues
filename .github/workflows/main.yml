@@ -2,7 +2,7 @@ name: Android Build CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "DesktopGlues" ]
   workflow_dispatch:
     inputs:
       build_type:
@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-          submodules: recursive # 自动处理 FastSTL 等可能的子模块
+          submodules: recursive
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -33,27 +33,41 @@ jobs:
           distribution: 'temurin'
 
       - name: Configure CMake
+        # 将逻辑提前处理，避免在 run 块中使用括号引起 Shell 报错
+        env:
+          SELECTED_BUILD_TYPE: ${{ github.event.inputs.build_type || 'Release' }}
         run: |
           cmake -S src/main/cpp -B build \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.abi }} \
             -DANDROID_PLATFORM=android-24 \
-            -DCMAKE_BUILD_TYPE=${{ github.event.inputs.build_type || 'Release' }} \
+            -DCMAKE_BUILD_TYPE=$SELECTED_BUILD_TYPE \
+            -DBUILD_SHARED_LIBS=ON \
+            -DLIB_TYPE=SHARED \
             -DPROFILING=OFF
 
       - name: Build Project
-        run: cmake --build build --config Release --parallel 2 --verbose
+        # 编译所有 target，确保包含 mobileglues 和 info_getter
+        run: cmake --build build --config Release --parallel $(nproc) --verbose
 
       - name: Collect and Rename Artifacts
         if: success()
         run: |
           mkdir -p dist/
-          # 搜索并重命名，防止上传后文件名冲突
-          find build -name "libmobileglues.so" -exec cp {} dist/libmobileglues-${{ matrix.abi }}.so \;
-          # 拷贝随附的动态库（如果有）
-          cp src/main/cpp/libraries/${{ matrix.abi }}/libspirv-cross-c-shared.so dist/ || echo "Optional lib not found"
+          # 1. 自动搜索并搜集所有生成的 .so 文件（包含 info_getter）
+          find build -name "*.so" -exec cp {} dist/ \;
           
-          # 生成构建摘要，直接在 GitHub 页面看大小
+          # 2. 创建 libmobileglues-arm64-v8a.so 副本
+          if [ -f "dist/libmobileglues.so" ]; then
+            cp dist/libmobileglues.so dist/libmobileglues-${{ matrix.abi }}.so
+          fi
+          
+          # 3. 提取预编译库 libspirv-cross-c-shared.so
+          PREBUILT_DIR="src/main/cpp/libraries/${{ matrix.abi }}"
+          if [ -d "$PREBUILT_DIR" ]; then
+            cp $PREBUILT_DIR/*.so dist/ 2>/dev/null || echo "No prebuilt libs"
+          fi
+          
           echo "### Build Summary for ${{ matrix.abi }}" >> $GITHUB_STEP_SUMMARY
           ls -lh dist/ >> $GITHUB_STEP_SUMMARY
 
@@ -61,5 +75,9 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: MobileGlues-Binaries-${{ matrix.abi }}
+          name: MobileGlues-All-Libraries-${{ matrix.abi }}
           path: dist/
+
+      - name: Clean Build Directory
+        if: always()
+        run: rm -rf build
