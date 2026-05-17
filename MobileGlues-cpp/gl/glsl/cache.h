@@ -48,3 +48,128 @@ private:
 };
 
 #endif
+// MobileGl// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+//// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef M// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef MOBILEGLUES_PLUGIN_CACHE_H
+#define MOBILEGLUES_PLUGIN// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef MOBILEGLUES_PLUGIN_CACHE_H
+#define MOBILEGLUES_PLUGIN_CACHE_H
+
+#include "../mg.h"
+#include "../../config/config.h"
+#include "../../config// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef MOBILEGLUES_PLUGIN_CACHE_H
+#define MOBILEGLUES_PLUGIN_CACHE_H
+
+#include "../mg.h"
+#include "../../config/config.h"
+#include "../../config/settings.h"
+
+#include <list>
+#include <array>
+#include <string>
+// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef MOBILEGLUES_PLUGIN_CACHE_H
+#define MOBILEGLUES_PLUGIN_CACHE_H
+
+#include "../mg.h"
+#include "../../config/config.h"
+#include "../../config/settings.h"
+
+#include <list>
+#include <array>
+#include <string>
+#include <cstdint>
+
+class Cache {
+public:
+    Cache();
+    ~// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef MOBILEGLUES_PLUGIN_CACHE_H
+#define MOBILEGLUES_PLUGIN_CACHE_H
+
+#include "../mg.h"
+#include "../../config/config.h"
+#include "../../config/settings.h"
+
+#include <list>
+#include <array>
+#include <string>
+#include <cstdint>
+
+class Cache {
+public:
+    Cache();
+    ~Cache();
+    const char* get(const char* glsl);
+    void put(const char// MobileGlues - gl/glsl/cache.h
+// Copyright (c) 2025-2026 MobileGL-Dev
+// Licensed under the GNU Lesser General Public License v2.1:
+//   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+// SPDX-License-Identifier: LGPL-2.1-only
+// End of Source File Header
+
+#ifndef MOBILEGLUES_PLUGIN_CACHE_H
+#define MOBILEGLUES_PLUGIN_CACHE_H
+
+#include "../mg.h"
+#include "../../config/config.h"
+#include "../../config/settings.h"
+
+#include <list>
+#include <array>
+#include <string>
+#include <cstdint>
+
+class Cache {
+public:
+    Cache();
+    ~Cache();
+    const char* get(const char* glsl);
+    void put(const char* glsl, const char* essl);
+    bool load();
+    void save();
