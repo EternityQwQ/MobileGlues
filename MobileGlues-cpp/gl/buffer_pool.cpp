@@ -7,7 +7,7 @@
 #include "buffer_pool.h"
 #include "../gles/gles.h"
 #include "../includes.h"
-#include "log.h"
+#include "mg.h"
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
@@ -41,7 +41,7 @@ struct SizeClassPool {
 
 static std::vector<SizeClassPool> g_sizeClassPools;
 static std::unordered_map<GLuint, size_t> g_usedBufferClass;
-static bool g_initialized = false;
+static bool g_pool_initialized = false;
 static size_t g_totalPoolSize = 0;
 
 static size_t findSizeClassIndex(GLenum target, size_t minSize) {
@@ -60,14 +60,14 @@ static uint64_t getTimeMs() {
 }
 
 void BufferPool_Init() {
-    if (g_initialized) return;
+    if (g_pool_initialized) return;
     g_sizeClassPools.resize(NUM_SIZE_CLASSES);
-    g_initialized = true;
+    g_pool_initialized = true;
     LOG_D("BufferPool initialized with %zu size classes", NUM_SIZE_CLASSES);
 }
 
 GLuint BufferPool_Acquire(GLenum target, GLsizeiptr minSize, GLenum usage) {
-    if (!g_initialized) BufferPool_Init();
+    if (!g_pool_initialized) BufferPool_Init();
 
     size_t classIdx = findSizeClassIndex(target, (size_t)minSize);
     SizeClassPool& pool = g_sizeClassPools[classIdx];
@@ -94,7 +94,7 @@ GLuint BufferPool_Acquire(GLenum target, GLsizeiptr minSize, GLenum usage) {
 }
 
 void BufferPool_Release(GLuint buffer, GLsizeiptr usedSize) {
-    if (!g_initialized) {
+    if (!g_pool_initialized) {
         GLES.glDeleteBuffers(1, &buffer);
         return;
     }
@@ -132,7 +132,7 @@ void BufferPool_Release(GLuint buffer, GLsizeiptr usedSize) {
 }
 
 void BufferPool_Cleanup(size_t maxTotalSize) {
-    if (!g_initialized) return;
+    if (!g_pool_initialized) return;
 
     uint64_t now = getTimeMs();
     size_t effectiveMax = (maxTotalSize > 0) ? maxTotalSize : MAX_POOL_TOTAL_SIZE;
@@ -154,7 +154,7 @@ void BufferPool_Cleanup(size_t maxTotalSize) {
 }
 
 void BufferPool_Destroy() {
-    if (!g_initialized) return;
+    if (!g_pool_initialized) return;
 
     for (auto& pool : g_sizeClassPools) {
         for (auto& pb : pool.freeList) {
@@ -164,7 +164,7 @@ void BufferPool_Destroy() {
     }
     g_usedBufferClass.clear();
     g_totalPoolSize = 0;
-    g_initialized = false;
+    g_pool_initialized = false;
 
     LOG_D("BufferPool destroyed");
 }
