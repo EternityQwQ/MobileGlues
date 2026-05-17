@@ -24,7 +24,7 @@
 __attribute__((used))
 #endif
 const char* license = "GNU LGPL-2.1 License";
-const char* author = "EternityQwQ";
+const char* author = "Swung, BZLZHH, Tungsten, EternityQwQ";
 
 void init_config() {
     if (check_path()) config_refresh();
