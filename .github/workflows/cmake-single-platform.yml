@@ -1,77 +1,54 @@
-name: Build MobileGlues Android .so Library (Debug Path)
+name: Build MobileGlues Android arm64-v8a Library
 
-# 触发工作流的事件
 on:
   push:
-    branches: [ main, master, dev ] # 推送到这些分支时触发
+    branches: [ main, master, dev ]
   pull_request:
-    branches: [ main, master, dev ] # 对这些分支发起 PR 时触发
-  workflow_dispatch: # 允许手动点击运行
+    branches: [ main, master, dev ]
+  workflow_dispatch:
 
 jobs:
-  find_path_and_build:
-    # 始终在最新的 Ubuntu runner 上运行
+  build-android-arm64:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout Code with Submodules
-      # MobileGlues项目通常依赖子模块，必须递归克隆
       uses: actions/checkout@v4
       with:
         submodules: recursive
-     
-    - name: debug
-      id: find_path
-      run: |
-        # 查找 CMakeLists.txt 的相对路径，并将其设置为环境变量
-        # 路径格式示例: ./some/path/to/CMakeLists.txt
-        # 我们需要的是 "some/path/to" 这一部分
-        CMAKE_FILE_PATH=$(find . -name "CMakeLists.txt" | head -n 1)
-        if [ -z "$CMAKE_FILE_PATH" ]; then
-          echo "Error: CMakeLists.txt not found in the repository."
-          exit 1
-        fi
-        
-        # 提取包含 CMakeLists.txt 的目录路径
-        # sed 命令会移除文件名前面的路径和文件名本身
-        CORRECT_SOURCE_DIR=$(echo $CMAKE_FILE_PATH | sed 's/\(.*\)\/CMakeLists.txt/\1/' | sed 's/^\.\///')
-        
-        echo "::set-output name=source_dir::$CORRECT_SOURCE_DIR"
-        echo "Found Source Directory: $CORRECT_SOURCE_DIR"
-        
-    - name: Set up Android NDK and SDK
+
+    - name: Set up Android NDK
       uses: android-actions/setup-android@v3
       with:
-        android-ndk: 'r25c'
-        
-    - name: Create Build Directory
-      run: mkdir build_android
+        android-ndk: 'r27b'
+        api-level: 21
 
     - name: Configure CMake for Android (arm64-v8a)
-      # 使用上一步自动检测到的路径
-      # 如果上一步找不到路径，这里会失败
       run: |
-        CMAKE_SOURCE_DIR=${{ steps.find_path.outputs.source_dir }}
-        echo "Using determined source directory: $CMAKE_SOURCE_DIR"
-        
-        # 修正: -H 参数使用自动检测到的目录
-        cmake -Bbuild_android/arm64-v8a \
-              -H"$CMAKE_SOURCE_DIR" \
+        cd MobileGlues-cpp
+        cmake -B build_android \
               -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
               -DANDROID_ABI=arm64-v8a \
               -DANDROID_NATIVE_API_LEVEL=21 \
               -DCMAKE_BUILD_TYPE=Release
-              
-    - name: Build .so files (arm64-v8a)
-      run: cmake --build build_android/arm64-v8a --config Release
-      
-    - name: Find and List .so files
-      # 调试步骤：确认文件已生成 (库名默认为 mobileglues)
-      run: find build_android -name "*.so"
-        
-    - name: Upload .so Artifacts
+
+    - name: Build Android library (arm64-v8a)
+      run: |
+        cd MobileGlues-cpp
+        cmake --build build_android --config Release -j$(nproc)
+
+    - name: Verify Build Output
+      run: |
+        echo "Looking for .so files..."
+        find MobileGlues-cpp/build_android -name "*.so" -type f -exec ls -lh {} \;
+        echo "Looking for output directory..."
+        ls -la MobileGlues-cpp/build_android/
+
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: mobileglues-android-so-arm64-v8a
-        path: build_android/**/*.so
-        retention-days: 7
+        name: mobileglues-android-arm64-v8a
+        path: |
+          MobileGlues-cpp/build_android/**/*.so
+          MobileGlues-cpp/build_android/**/CMakeCache.txt
+        retention-days: 14
