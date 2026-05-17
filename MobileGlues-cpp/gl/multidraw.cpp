@@ -7,6 +7,8 @@
 
 #include "multidraw.h"
 #include "../config/settings.h"
+#include "buffer.h"
+#include "buffer_pool.h"
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -146,10 +148,8 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
                                                    const void* const* indices, GLsizei primcount,
                                                    const GLint* basevertex) {
     LOG()
-    void prepareForDraw();
     prepareForDraw();
-    GLint prevElementBuffer;
-    GLES.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
+    GLint prevElementBuffer = find_bound_buffer(GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
     for (GLsizei i = 0; i < primcount; ++i) {
         if (counts[i] <= 0) continue;
@@ -173,14 +173,14 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
             return;
         }
 
-        GLuint tempBuffer;
-        GLES.glGenBuffers(1, &tempBuffer);
+        size_t bufferSize = currentCount * indexSize;
+        GLuint tempBuffer = BufferPool_Acquire(GL_ELEMENT_ARRAY_BUFFER, bufferSize, GL_STREAM_DRAW);
         GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
 
         void* srcData = nullptr;
-        void* tempIndices = malloc(currentCount * indexSize);
+        void* tempIndices = malloc(bufferSize);
         if (!tempIndices) {
-            GLES.glDeleteBuffers(1, &tempBuffer);
+            BufferPool_Release(tempBuffer, bufferSize);
             continue;
         }
 
@@ -191,7 +191,7 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
 
             if (!srcData) {
                 free(tempIndices);
-                GLES.glDeleteBuffers(1, &tempBuffer);
+                BufferPool_Release(tempBuffer, bufferSize);
                 continue;
             }
         } else {
@@ -225,7 +225,7 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
         free(tempIndices);
         GLES.glDrawElements(mode, currentCount, type, 0);
 
-        GLES.glDeleteBuffers(1, &tempBuffer);
+        BufferPool_Release(tempBuffer, bufferSize);
     }
 
     GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);

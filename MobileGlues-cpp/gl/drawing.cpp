@@ -7,6 +7,7 @@
 
 #include "drawing.h"
 #include "buffer.h"
+#include "buffer_pool.h"
 #include "framebuffer.h"
 #include "mg.h"
 #include "texture.h"
@@ -166,8 +167,7 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
         !g_gles_caps.GL_OES_draw_elements_base_vertex) {
         // TODO: use indirect drawing for GLES 3.1
         LOG_D("Emulating glDrawElementsBaseVertex")
-        GLint prevElementBuffer;
-        GLES.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
+        GLint prevElementBuffer = find_bound_buffer(GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
         if (basevertex == 0) {
             GLES.glDrawElements(mode, count, type, indices);
@@ -228,15 +228,14 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
             break;
         }
 
-        GLuint tempBuffer;
-        GLES.glGenBuffers(1, &tempBuffer);
+        GLuint tempBuffer = BufferPool_Acquire(GL_ELEMENT_ARRAY_BUFFER, count * indexSize, GL_STREAM_DRAW);
         GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
         GLES.glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * indexSize, tempIndices, GL_STREAM_DRAW);
         free(tempIndices);
 
         GLES.glDrawElements(mode, count, type, 0);
 
-        GLES.glDeleteBuffers(1, &tempBuffer);
+        BufferPool_Release(tempBuffer, count * indexSize);
         GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
 
         CHECK_GL_ERROR

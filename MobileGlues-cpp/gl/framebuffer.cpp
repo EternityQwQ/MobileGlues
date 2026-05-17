@@ -9,6 +9,8 @@
 #include "log.h"
 #include "../config/settings.h"
 #include "FSR1/FSR1.h"
+#include <algorithm>
+#include <cstring>
 
 #define DEBUG 0
 
@@ -29,7 +31,12 @@ void ensure_max_attachments() {
 }
 framebuffer_t& get_framebuffer(GLuint id) {
     if (id >= framebuffers.size()) {
-        framebuffers.resize(id + 10);
+        size_t newSize = id + 1;
+        if (newSize < framebuffers.capacity() * 2) {
+            newSize = framebuffers.capacity() * 2;
+        }
+        if (newSize < 16) newSize = 16;
+        framebuffers.resize(newSize);
     }
     return framebuffers[id];
 }
@@ -38,8 +45,8 @@ void InitFramebufferMap(size_t expectedSize) {
 }
 void init_framebuffer(framebuffer_t& fbo) {
     if (!fbo.initialized) {
-        fbo.color_attachments = new attachment_t[MAX_COLOR_ATTACHMENTS];
-        memset(fbo.color_attachments, 0, sizeof(attachment_t) * MAX_COLOR_ATTACHMENTS);
+        fbo.color_attachments.resize(MAX_COLOR_ATTACHMENTS);
+        std::fill(fbo.color_attachments.begin(), fbo.color_attachments.end(), attachment_t{0, 0, 0});
         fbo.initialized = true;
     }
 }
@@ -91,9 +98,6 @@ void glFramebufferTexture(GLenum target, GLenum attachment, GLuint texture, GLin
 void glDrawBuffer(GLenum buffer) {
     LOG()
     LOG_D("glDrawBuffer %d", buffer)
-
-    //    GLint currentFBO;
-    //    GLES.glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
     if (current_draw_fbo == 0) {
         GLenum buffers[] = {buffer};
         glDrawBuffers(1, buffers);
@@ -101,15 +105,16 @@ void glDrawBuffer(GLenum buffer) {
         GLint maxAttachments;
         GLES.glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxAttachments);
 
+        static thread_local std::vector<GLenum> s_buffers;
         if (buffer == GL_NONE) {
             framebuffers[current_draw_fbo].color_attachments_all_none = true;
-            std::vector<GLenum> buffers(maxAttachments, GL_NONE);
-            glDrawBuffers(maxAttachments, buffers.data());
+            s_buffers.assign(maxAttachments, GL_NONE);
+            glDrawBuffers(maxAttachments, s_buffers.data());
         } else if (buffer >= GL_COLOR_ATTACHMENT0 && buffer < GL_COLOR_ATTACHMENT0 + maxAttachments) {
             framebuffers[current_draw_fbo].color_attachments_all_none = false;
-            std::vector<GLenum> buffers(maxAttachments, GL_NONE);
-            buffers[buffer - GL_COLOR_ATTACHMENT0] = buffer;
-            glDrawBuffers(maxAttachments, buffers.data());
+            s_buffers.assign(maxAttachments, GL_NONE);
+            s_buffers[buffer - GL_COLOR_ATTACHMENT0] = buffer;
+            glDrawBuffers(maxAttachments, s_buffers.data());
         }
     }
     CHECK_GL_ERROR;
@@ -134,28 +139,45 @@ void glDrawBuffers(GLsizei n, const GLenum* bufs) {
     if (all_none) {
         LOG_D("glDrawBuffers, fb %d all_none true", current_draw_fbo)
         fbo.color_attachments_all_none = true;
+        fbo.last_draw_buffers.clear();
         GLES.glDrawBuffers(n, bufs);
         return;
-    } else {
-        LOG_D("glDrawBuffers, fb %d all_none false", current_draw_fbo)
-        fbo.color_attachments_all_none = false;
     }
 
-    std::vector<GLenum> new_bufs(n);
-    for (int i = 0; i < n; i++) {
-        if (bufs[i] >= GL_COLOR_ATTACHMENT0 && bufs[i] < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {
-            GLenum logical_attachment = bufs[i];
-            GLenum physical_attachment = GL_COLOR_ATTACHMENT0 + i;
-            new_bufs[i] = physical_attachment;
-            int index = logical_attachment - GL_COLOR_ATTACHMENT0;
-            attachment_t& attach = fbo.color_attachments[index];
-            GLES.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, physical_attachment, attach.textarget, attach.texture,
-                                        attach.level);
-        } else {
-            new_bufs[i] = bufs[i];
+    LOG_D("glDrawBuffers, fb %d all_none false", current_draw_fbo)
+    fbo.color_attachments_all_none = false;
+
+    bool sameAsLast = (fbo.last_draw_buffers.size() == (size_t)n);
+    if (sameAsLast) {
+        for (int i = 0; i < n; ++i) {
+            if (bufs[i] != fbo.last_draw_buffers[i]) {
+                sameAsLast = false;
+                break;
+            }
         }
     }
-    GLES.glDrawBuffers(n, new_bufs.data());
+
+    static thread_local std::vector<GLenum> s_new_bufs;
+    s_new_bufs.resize(n);
+    for (int i = 0; i < n; i++) {
+        if (bufs[i] >= GL_COLOR_ATTACHMENT0 && bufs[i] < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {
+            GLenum physical_attachment = GL_COLOR_ATTACHMENT0 + i;
+            s_new_bufs[i] = physical_attachment;
+            if (!sameAsLast) {
+                int index = bufs[i] - GL_COLOR_ATTACHMENT0;
+                attachment_t& attach = fbo.color_attachments[index];
+                GLES.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, physical_attachment, attach.textarget, attach.texture,
+                                            attach.level);
+            }
+        } else {
+            s_new_bufs[i] = bufs[i];
+        }
+    }
+
+    if (!sameAsLast) {
+        fbo.last_draw_buffers.assign(bufs, bufs + n);
+    }
+    GLES.glDrawBuffers(n, s_new_bufs.data());
 }
 void glReadBuffer(GLenum src) {
     if (current_read_fbo != 0 && src >= GL_COLOR_ATTACHMENT0 && src < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {

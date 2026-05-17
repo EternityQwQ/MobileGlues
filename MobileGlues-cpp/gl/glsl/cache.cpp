@@ -9,8 +9,11 @@
 #include <fstream>
 #include <cstring>
 #include <vector>
+#include <unordered_map>
 
 using namespace std;
+
+static unordered_map<string, array<uint8_t, 32>> g_hashCache;
 
 // SHA256
 static const uint32_t k[64] = {
@@ -48,6 +51,12 @@ namespace {
 } // namespace
 
 array<uint8_t, 32> Cache::computeSHA256(const char* data) {
+    string key(data);
+    auto hit = g_hashCache.find(key);
+    if (hit != g_hashCache.end()) {
+        return hit->second;
+    }
+
     vector<uint8_t> input(reinterpret_cast<const uint8_t*>(data),
                           reinterpret_cast<const uint8_t*>(data) + strlen(data));
 
@@ -105,6 +114,7 @@ array<uint8_t, 32> Cache::computeSHA256(const char* data) {
         hash[i * 4 + 2] = static_cast<uint8_t>(h[i] >> 8);
         hash[i * 4 + 3] = static_cast<uint8_t>(h[i]);
     }
+    g_hashCache[move(key)] = hash;
     return hash;
 }
 
@@ -121,6 +131,13 @@ size_t Cache::SHA256Hash::operator()(const array<uint8_t, 32>& key) const {
 
 Cache::Cache() {
     load();
+}
+
+Cache::~Cache() {
+    if (dirty) {
+        save();
+    }
+    g_hashCache.clear();
 }
 
 const char* Cache::get(const char* glsl) {
@@ -151,7 +168,7 @@ void Cache::put(const char* glsl, const char* essl) {
     cacheSize += entryMemory;
 
     maintainCacheSize();
-    save();
+    dirty = true;
 }
 
 void Cache::maintainCacheSize() {
@@ -206,7 +223,7 @@ bool Cache::load() {
 }
 
 void Cache::save() {
-    if (global_settings.max_glsl_cache_size <= 0) return;
+    if (global_settings.max_glsl_cache_size <= 0 || !dirty) return;
     ofstream file(glsl_cache_file_path, ios::binary);
     if (!file) return;
 
@@ -219,6 +236,7 @@ void Cache::save() {
         file.write(reinterpret_cast<const char*>(&esslSize), sizeof(esslSize));
         file.write(entry.essl.data(), (long)esslSize);
     }
+    dirty = false;
 }
 
 Cache& Cache::get_instance() {

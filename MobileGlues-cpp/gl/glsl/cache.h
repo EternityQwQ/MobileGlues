@@ -20,6 +20,7 @@
 class Cache {
 public:
     Cache();
+    ~Cache();
     const char* get(const char* glsl);
     void put(const char* glsl, const char* essl);
     bool load();
@@ -42,6 +43,7 @@ private:
     using ListIterator = std::list<CacheEntry>::iterator;
     UnorderedMap<std::array<uint8_t, 32>, ListIterator, SHA256Hash> cacheMap;
     size_t cacheSize = 0;
+    bool dirty = false;
 
     static std::array<uint8_t, 32> computeSHA256(const char* data);
     void maintainCacheSize();
