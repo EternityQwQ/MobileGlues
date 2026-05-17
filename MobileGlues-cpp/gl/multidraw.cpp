@@ -221,7 +221,12 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
         }
 
         GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
-        GLES.glBufferData(GL_ELEMENT_ARRAY_BUFFER, currentCount * indexSize, tempIndices, GL_STREAM_DRAW);
+        void* mapped = GLES.glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, bufferSize,
+                                             GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+        if (mapped) {
+            memcpy(mapped, tempIndices, bufferSize);
+            GLES.glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+        }
         free(tempIndices);
         GLES.glDrawElements(mode, currentCount, type, 0);
 

@@ -230,7 +230,12 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
 
         GLuint tempBuffer = BufferPool_Acquire(GL_ELEMENT_ARRAY_BUFFER, count * indexSize, GL_STREAM_DRAW);
         GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
-        GLES.glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * indexSize, tempIndices, GL_STREAM_DRAW);
+        void* mapped = GLES.glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, count * indexSize,
+                                             GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+        if (mapped) {
+            memcpy(mapped, tempIndices, count * indexSize);
+            GLES.glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+        }
         free(tempIndices);
 
         GLES.glDrawElements(mode, count, type, 0);
