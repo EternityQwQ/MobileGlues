@@ -10,6 +10,7 @@
 
 #include <GL/gl.h>
 #include <cstddef>
+#include <vector>
 
 struct attachment_t {
     GLenum textarget;
@@ -22,6 +23,7 @@ struct framebuffer_t {
     attachment_t* color_attachments = nullptr;
     attachment_t depth_attachment = {0};
     attachment_t stencil_attachment = {0};
+    std::vector<GLenum> last_draw_buffers;
 };
 
 #ifdef __cplusplus

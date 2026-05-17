@@ -9,6 +9,7 @@
 #include "log.h"
 #include "../config/settings.h"
 #include "FSR1/FSR1.h"
+#include <cstring>
 
 #define DEBUG 0
 
@@ -134,26 +135,42 @@ void glDrawBuffers(GLsizei n, const GLenum* bufs) {
     if (all_none) {
         LOG_D("glDrawBuffers, fb %d all_none true", current_draw_fbo)
         fbo.color_attachments_all_none = true;
+        fbo.last_draw_buffers.clear();
         GLES.glDrawBuffers(n, bufs);
         return;
-    } else {
-        LOG_D("glDrawBuffers, fb %d all_none false", current_draw_fbo)
-        fbo.color_attachments_all_none = false;
+    }
+
+    LOG_D("glDrawBuffers, fb %d all_none false", current_draw_fbo)
+    fbo.color_attachments_all_none = false;
+
+    bool sameAsLast = (fbo.last_draw_buffers.size() == (size_t)n);
+    if (sameAsLast) {
+        for (int i = 0; i < n; ++i) {
+            if (bufs[i] != fbo.last_draw_buffers[i]) {
+                sameAsLast = false;
+                break;
+            }
+        }
     }
 
     std::vector<GLenum> new_bufs(n);
     for (int i = 0; i < n; i++) {
         if (bufs[i] >= GL_COLOR_ATTACHMENT0 && bufs[i] < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {
-            GLenum logical_attachment = bufs[i];
             GLenum physical_attachment = GL_COLOR_ATTACHMENT0 + i;
             new_bufs[i] = physical_attachment;
-            int index = logical_attachment - GL_COLOR_ATTACHMENT0;
-            attachment_t& attach = fbo.color_attachments[index];
-            GLES.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, physical_attachment, attach.textarget, attach.texture,
-                                        attach.level);
+            if (!sameAsLast) {
+                int index = bufs[i] - GL_COLOR_ATTACHMENT0;
+                attachment_t& attach = fbo.color_attachments[index];
+                GLES.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, physical_attachment, attach.textarget, attach.texture,
+                                            attach.level);
+            }
         } else {
             new_bufs[i] = bufs[i];
         }
+    }
+
+    if (!sameAsLast) {
+        fbo.last_draw_buffers.assign(bufs, bufs + n);
     }
     GLES.glDrawBuffers(n, new_bufs.data());
 }
