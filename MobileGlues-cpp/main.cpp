@@ -24,6 +24,7 @@
 __attribute__((used))
 #endif
 const char* license = "GNU LGPL-2.1 License";
+const char* author = "EternityQwQ";
 
 void init_config() {
     if (check_path()) config_refresh();
@@ -32,6 +33,10 @@ void init_config() {
 void show_license() {
     LOG_V("The Open Source License of MobileGlues: ");
     LOG_V("  %s", license);
+}
+
+void show_author() {
+    LOG_V("Author: %s", author);
 }
 
 #if PROFILING
@@ -56,6 +61,7 @@ void proc_init() {
 
     LOG_V("Initializing %s ...", RENDERERNAME);
     show_license();
+    show_author();
 
     init_settings();
 
