@@ -85,7 +85,7 @@ static GLuint prevIndirectBuffer = 0;
 
 void prepare_indirect_buffer(const GLsizei* counts, GLenum type, const void* const* indices, GLsizei primcount,
                              const GLint* basevertex) {
-    GLES.glGetIntegerv(GL_DRAW_INDIRECT_BUFFER_BINDING, (GLint*)&prevIndirectBuffer);
+    prevIndirectBuffer = gl_state->bound_draw_indirect_buffer;
     if (!g_indirect_cmds_inited) {
         GLES.glGenBuffers(1, &g_indirectbuffer);
         GLES.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, g_indirectbuffer);
@@ -151,38 +151,39 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
     prepareForDraw();
     GLint prevElementBuffer = find_bound_buffer(GL_ELEMENT_ARRAY_BUFFER_BINDING);
 
+    size_t indexSize;
+    switch (type) {
+    case GL_UNSIGNED_INT:    indexSize = sizeof(GLuint);   break;
+    case GL_UNSIGNED_SHORT:  indexSize = sizeof(GLushort); break;
+    case GL_UNSIGNED_BYTE:   indexSize = sizeof(GLubyte);  break;
+    default: return;
+    }
+
+    size_t maxBufferSize = 0;
+    for (GLsizei i = 0; i < primcount; ++i) {
+        if (counts[i] <= 0) continue;
+        size_t sz = (size_t)counts[i] * indexSize;
+        if (sz > maxBufferSize) maxBufferSize = sz;
+    }
+    if (maxBufferSize == 0) return;
+
+    static thread_local std::vector<uint8_t> tls_md_buffer;
+    if (tls_md_buffer.size() < maxBufferSize) {
+        tls_md_buffer.resize(maxBufferSize * 2);
+    }
+    void* tlsIndices = tls_md_buffer.data();
+
+    GLuint tempBuffer = BufferPool_Acquire(GL_ELEMENT_ARRAY_BUFFER, maxBufferSize, GL_STREAM_DRAW);
+
     for (GLsizei i = 0; i < primcount; ++i) {
         if (counts[i] <= 0) continue;
 
         GLsizei currentCount = counts[i];
         const GLvoid* currentIndices = indices[i];
         GLint currentBaseVertex = basevertex[i];
-
-        size_t indexSize;
-        switch (type) {
-        case GL_UNSIGNED_INT:
-            indexSize = sizeof(GLuint);
-            break;
-        case GL_UNSIGNED_SHORT:
-            indexSize = sizeof(GLushort);
-            break;
-        case GL_UNSIGNED_BYTE:
-            indexSize = sizeof(GLubyte);
-            break;
-        default:
-            return;
-        }
-
-        size_t bufferSize = currentCount * indexSize;
-        GLuint tempBuffer = BufferPool_Acquire(GL_ELEMENT_ARRAY_BUFFER, bufferSize, GL_STREAM_DRAW);
-        GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
+        size_t bufferSize = (size_t)currentCount * indexSize;
 
         void* srcData = nullptr;
-        void* tempIndices = malloc(bufferSize);
-        if (!tempIndices) {
-            BufferPool_Release(tempBuffer, bufferSize);
-            continue;
-        }
 
         if (prevElementBuffer != 0) {
             GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
@@ -190,8 +191,6 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
                                             GL_MAP_READ_BIT);
 
             if (!srcData) {
-                free(tempIndices);
-                BufferPool_Release(tempBuffer, bufferSize);
                 continue;
             }
         } else {
@@ -201,17 +200,17 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
         switch (type) {
         case GL_UNSIGNED_INT:
             for (int j = 0; j < currentCount; ++j) {
-                ((GLuint*)tempIndices)[j] = ((GLuint*)srcData)[j] + currentBaseVertex;
+                ((GLuint*)tlsIndices)[j] = ((GLuint*)srcData)[j] + currentBaseVertex;
             }
             break;
         case GL_UNSIGNED_SHORT:
             for (int j = 0; j < currentCount; ++j) {
-                ((GLushort*)tempIndices)[j] = ((GLushort*)srcData)[j] + currentBaseVertex;
+                ((GLushort*)tlsIndices)[j] = ((GLushort*)srcData)[j] + currentBaseVertex;
             }
             break;
         case GL_UNSIGNED_BYTE:
             for (int j = 0; j < currentCount; ++j) {
-                ((GLubyte*)tempIndices)[j] = ((GLubyte*)srcData)[j] + currentBaseVertex;
+                ((GLubyte*)tlsIndices)[j] = ((GLubyte*)srcData)[j] + currentBaseVertex;
             }
             break;
         }
@@ -224,15 +223,13 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts,
         void* mapped = GLES.glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, bufferSize,
                                              GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
         if (mapped) {
-            memcpy(mapped, tempIndices, bufferSize);
+            memcpy(mapped, tlsIndices, bufferSize);
             GLES.glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
         }
-        free(tempIndices);
         GLES.glDrawElements(mode, currentCount, type, 0);
-
-        BufferPool_Release(tempBuffer, bufferSize);
     }
 
+    BufferPool_Release(tempBuffer, maxBufferSize);
     GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
 
     CHECK_GL_ERROR
@@ -576,8 +573,7 @@ GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_compute(GLenum mode, GLsi
         g_compute_inited = true;
     }
 
-    GLint ibo = 0;
-    GLES.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibo);
+    GLint ibo = find_bound_buffer(GL_ELEMENT_ARRAY_BUFFER_BINDING);
     CHECK_GL_ERROR_NO_INIT
     if (ibo == 0) {
         LOG_D("mg_glMultiDrawElementsBaseVertex_compute: no element array buffer bound, fallback")
@@ -658,8 +654,7 @@ GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_compute(GLenum mode, GLsi
         return;
     }
 
-    GLint prev_ssbo_binding = 0;
-    GLES.glGetIntegerv(GL_SHADER_STORAGE_BUFFER_BINDING, &prev_ssbo_binding);
+    GLint prev_ssbo_binding = find_bound_buffer(GL_SHADER_STORAGE_BUFFER_BINDING);
     CHECK_GL_ERROR_NO_INIT
 
     // Fill in the data
@@ -690,7 +685,7 @@ GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_compute(GLenum mode, GLsi
     // Bind buffers
     GLint prev_ssbo_base[5] = {};
     for (int i = 0; i < 5; ++i) {
-        GLES.glGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, i, &prev_ssbo_base[i]);
+        prev_ssbo_base[i] = (GLint)gl_state->bound_ssbo[i];
         CHECK_GL_ERROR_NO_INIT
     }
 
@@ -706,11 +701,9 @@ GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_compute(GLenum mode, GLsi
     CHECK_GL_ERROR_NO_INIT
 
     // Save states
-    GLint prev_program = 0;
-    GLES.glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+    GLint prev_program = (GLint)gl_state->current_program;
     CHECK_GL_ERROR_NO_INIT
-    GLint prev_vb = 0;
-    GLES.glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prev_vb);
+    GLint prev_vb = (GLint)gl_state->bound_array_buffer;
     CHECK_GL_ERROR_NO_INIT
 
     // Dispatch compute

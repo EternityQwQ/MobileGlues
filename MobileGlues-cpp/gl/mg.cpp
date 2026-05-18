@@ -6,6 +6,7 @@
 // End of Source File Header
 
 #include <unistd.h>
+#include <cstring>
 #include "mg.h"
 
 #define DEBUG 0
@@ -19,6 +20,47 @@ FUNC_GL_STATE_ENUM(proxy_intformat)
 FUNC_GL_STATE_UINT(current_program)
 FUNC_GL_STATE_UINT(current_tex_unit)
 FUNC_GL_STATE_UINT(current_draw_fbo)
+
+void gl_state_bump_state() { gl_state->state_generation++; }
+void gl_state_bump_program() {
+    gl_state->program_generation++;
+    gl_state_bump_state();
+}
+void gl_state_bump_texture() {
+    gl_state->texture_generation++;
+    gl_state_bump_state();
+}
+
+static int binding_target_to_glstate_index(GLenum target) {
+    switch (target) {
+    case GL_ARRAY_BUFFER:             return 0;
+    case GL_ATOMIC_COUNTER_BUFFER:    return 1;
+    case GL_COPY_READ_BUFFER:         return 2;
+    case GL_COPY_WRITE_BUFFER:        return 3;
+    case GL_DRAW_INDIRECT_BUFFER:     return 4;
+    case GL_DISPATCH_INDIRECT_BUFFER: return 5;
+    case GL_ELEMENT_ARRAY_BUFFER:     return 6;
+    case GL_PIXEL_PACK_BUFFER:        return 7;
+    case GL_PIXEL_UNPACK_BUFFER:      return 8;
+    case GL_SHADER_STORAGE_BUFFER:    return 9;
+    case GL_TRANSFORM_FEEDBACK_BUFFER:return 10;
+    case GL_UNIFORM_BUFFER:           return 11;
+    case GL_TEXTURE_BUFFER:           return 12;
+    default:                          return -1;
+    }
+}
+
+void gl_state_set_bound_buffer(GLenum target, GLuint buffer) {
+    int idx = binding_target_to_glstate_index(target);
+    if (idx >= 0 && idx < MG_BINDING_COUNT) gl_state->bound_ssbo[idx] = buffer;
+    gl_state_bump_state();
+}
+
+GLuint gl_state_get_bound_buffer(GLenum target) {
+    int idx = binding_target_to_glstate_index(target);
+    if (idx >= 0 && idx < MG_BINDING_COUNT) return gl_state->bound_ssbo[idx];
+    return 0;
+}
 
 #ifndef __APPLE__
 FILE* file;

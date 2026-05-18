@@ -12,6 +12,7 @@
 #include "mg.h"
 #include "texture.h"
 #include <ankerl/unordered_dense.h>
+#include <vector>
 
 #define DEBUG 0
 
@@ -95,7 +96,20 @@ void setupBufferTextureUniforms(GLuint program) {
 void prepareForDraw() {
     LOG_D("prepareForDraw...")
     if (hardware->emulate_texture_buffer) {
-        setupBufferTextureUniforms(gl_state->current_program);
+        static uint32_t last_draw_program_gen = 0;
+        static uint32_t last_draw_texture_gen = 0;
+        static GLuint last_draw_program = 0;
+
+        if (last_draw_program != gl_state->current_program ||
+            last_draw_program_gen != gl_state->program_generation ||
+            last_draw_texture_gen != gl_state->texture_generation) {
+
+            setupBufferTextureUniforms(gl_state->current_program);
+
+            last_draw_program = gl_state->current_program;
+            last_draw_program_gen = gl_state->program_generation;
+            last_draw_texture_gen = gl_state->texture_generation;
+        }
     }
 }
 
@@ -189,10 +203,12 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
             return;
         }
 
-        void* tempIndices = malloc(count * indexSize);
-        if (!tempIndices) {
-            return;
+        static thread_local std::vector<uint8_t> tls_index_buffer;
+        size_t required_size = (size_t)count * indexSize;
+        if (tls_index_buffer.size() < required_size) {
+            tls_index_buffer.resize(required_size * 2);
         }
+        void* tempIndices = tls_index_buffer.data();
 
         if (prevElementBuffer != 0) {
             GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
@@ -203,7 +219,6 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
                 memcpy(tempIndices, srcData, count * indexSize);
                 GLES.glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
             } else {
-                free(tempIndices);
                 return;
             }
         } else {
@@ -236,7 +251,6 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
             memcpy(mapped, tempIndices, count * indexSize);
             GLES.glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
         }
-        free(tempIndices);
 
         GLES.glDrawElements(mode, count, type, 0);
 

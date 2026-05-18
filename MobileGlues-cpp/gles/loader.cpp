@@ -107,6 +107,21 @@ void init_gl_state() {
     set_gl_state_proxy_width(0);
     set_gl_state_proxy_intformat(0);
 
+    gl_state->state_generation = 0;
+    gl_state->program_generation = 0;
+    gl_state->texture_generation = 0;
+
+    gl_state->bound_array_buffer = 0;
+    gl_state->bound_element_array_buffer = 0;
+    gl_state->bound_draw_indirect_buffer = 0;
+    for (int i = 0; i < MG_BINDING_COUNT; i++) gl_state->bound_ssbo[i] = 0;
+    gl_state->current_vao = 0;
+    gl_state->max_texture_image_units = -1;
+
+    memset(gl_state->color_mask, 1, sizeof(gl_state->color_mask));
+    gl_state->depth_mask = GL_TRUE;
+    gl_state->depth_func = GL_LESS;
+
     InitTextureMap(1024);
     InitBufferMap(4096);
     InitVertexArrayMap(512);

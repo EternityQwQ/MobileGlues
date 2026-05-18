@@ -341,6 +341,14 @@ void glBindBuffer(GLenum target, GLuint buffer) {
     LOG()
     LOG_D("glBindBuffer, target = %s, buffer = %d", glEnumToString(target), buffer)
     set_bound_buffer_by_target(target, buffer);
+    gl_state_set_bound_buffer(target, buffer);
+
+    switch (target) {
+    case GL_ARRAY_BUFFER:         gl_state->bound_array_buffer = buffer;         break;
+    case GL_ELEMENT_ARRAY_BUFFER: gl_state->bound_element_array_buffer = buffer; break;
+    case GL_DRAW_INDIRECT_BUFFER: gl_state->bound_draw_indirect_buffer = buffer;break;
+    default: break;
+    }
     // save ibo binding to vao
     if (target == GL_ELEMENT_ARRAY_BUFFER) {
         update_vao_ibo_binding(find_bound_array(), buffer);
@@ -412,6 +420,10 @@ void glBindBufferRange(GLenum target, GLuint index, GLuint buffer, GLintptr offs
 void glBindBufferBase(GLenum target, GLuint index, GLuint buffer) {
     LOG()
     LOG_D("glBindBufferBase, target = %s, index = %d, buffer = %d", glEnumToString(target), index, buffer)
+
+    if (target == GL_SHADER_STORAGE_BUFFER && index < (GLuint)BINDING_COUNT) {
+        gl_state->bound_ssbo[index] = buffer;
+    }
 
     if (!has_buffer(buffer) || buffer == 0) {
         GLES.glBindBufferBase(target, index, buffer);
@@ -813,6 +825,7 @@ void glBindVertexArray(GLuint array) {
     LOG()
     LOG_D("glBindVertexArray(%d)", array)
     bound_array = array;
+    gl_state->current_vao = array;
 
     // update bound ibo
     set_bound_buffer_by_target(GL_ELEMENT_ARRAY_BUFFER, get_ibo_by_vao(array));

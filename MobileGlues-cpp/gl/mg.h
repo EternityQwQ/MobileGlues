@@ -67,6 +67,10 @@ extern "C"
     typedef struct hardware_s* hardware_t;
     extern hardware_t hardware;
 
+    #define MAX_SSBO_BINDINGS 8
+#define MAX_TEXTURE_UNITS 32
+#define MG_BINDING_COUNT 13
+
     struct gl_state_s {
         GLsizei proxy_width;
         GLsizei proxy_height;
@@ -75,9 +79,31 @@ extern "C"
         GLuint current_program;
         GLuint current_tex_unit;
         GLuint current_draw_fbo;
+
+        uint32_t state_generation;
+        uint32_t program_generation;
+        uint32_t texture_generation;
+
+        GLuint bound_array_buffer;
+        GLuint bound_element_array_buffer;
+        GLuint bound_draw_indirect_buffer;
+        GLuint bound_ssbo[MG_BINDING_COUNT];
+        GLuint current_vao;
+
+        GLint max_texture_image_units;
+
+        GLboolean color_mask[4];
+        GLboolean depth_mask;
+        GLint depth_func;
     };
     typedef struct gl_state_s* gl_state_t;
     extern gl_state_t gl_state;
+
+    void gl_state_bump_state();
+    void gl_state_bump_program();
+    void gl_state_bump_texture();
+    void gl_state_set_bound_buffer(GLenum target, GLuint buffer);
+    GLuint gl_state_get_bound_buffer(GLenum target);
 
     GLenum pname_convert(GLenum pname);
     GLenum map_tex_target(GLenum target);

@@ -56,10 +56,12 @@ void glGetIntegerv(GLenum pname, GLint* params) {
         (*params) = GLVersion.Minor;
         break;
     case GL_MAX_TEXTURE_IMAGE_UNITS: {
-        int es_params = 16;
-        GLES.glGetIntegerv(pname, &es_params);
-        CHECK_GL_ERROR(*params) = es_params * 2;
-        // Why is the real GL_MAX_TEXTURE_IMAGE_UNITS bigger than what GLES.glGetIntegerv returns?
+        if (gl_state->max_texture_image_units < 0) {
+            int es_params = 16;
+            GLES.glGetIntegerv(pname, &es_params);
+            gl_state->max_texture_image_units = es_params * 2;
+        }
+        (*params) = gl_state->max_texture_image_units;
         break;
     }
     case GL_CONTEXT_FLAGS: {

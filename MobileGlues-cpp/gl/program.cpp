@@ -197,6 +197,7 @@ void glUseProgram(GLuint program) {
     LOG_D("glUseProgram(%d)", program)
     if (program != gl_state->current_program) {
         gl_state->current_program = program;
+        gl_state_bump_program();
         GLES.glUseProgram(program);
         CHECK_GL_ERROR
     }

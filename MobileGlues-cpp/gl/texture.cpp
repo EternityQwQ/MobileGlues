@@ -1017,6 +1017,8 @@ void glBindTexture(GLenum target, GLuint texture) {
     }
     CHECK_GL_ERROR_NO_INIT
 
+    gl_state_bump_texture();
+
     int currentUnitIndex = GetCurrentTextureUnitIndex();
     auto& currentUnit = GetTextureUnit(currentUnitIndex);
     auto targetR = ConvertGLEnumToTextureTarget(target);
