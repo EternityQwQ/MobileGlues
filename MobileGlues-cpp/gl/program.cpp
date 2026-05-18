@@ -35,61 +35,80 @@ enum class ShouldGenerateFSState : int {
 UnorderedMap<GLuint, ShouldGenerateFSState> program_map_should_generate_fs;
 
 char* updateLayoutLocation(const char* esslSource, GLuint color, const char* name) {
-    std::string shaderCode(esslSource);
+    std::string src(esslSource);
     std::string newLayout = "layout (location = " + std::to_string(color) + ") ";
     const size_t nameLen = strlen(name);
+    std::string result;
+    result.reserve(src.size() + 64);
 
-    for (size_t i = 0; i < shaderCode.size(); ) {
-        size_t fn = shaderCode.find(name, i);
-        if (fn == std::string::npos) break;
+    size_t srcPos = 0;
+    while (srcPos < src.size()) {
+        size_t fn = src.find(name, srcPos);
+        if (fn == std::string::npos) {
+            result.append(src, srcPos, src.size() - srcPos);
+            break;
+        }
 
-        size_t semi = shaderCode.find(';', fn);
-        if (semi == std::string::npos) break;
+        size_t semi = src.find(';', fn);
+        if (semi == std::string::npos) {
+            result.append(src, srcPos, src.size() - srcPos);
+            break;
+        }
 
         bool clean = true;
         for (size_t j = fn + nameLen; j < semi; ++j) {
-            if (!isspace(shaderCode[j])) { clean = false; break; }
+            if (!isspace(src[j])) { clean = false; break; }
         }
-        if (!clean) { i = semi + 1; continue; }
+
+        if (!clean) {
+            result.append(src, srcPos, semi + 1 - srcPos);
+            srcPos = semi + 1;
+            continue;
+        }
 
         bool foundAndFixed = false;
         int searchStart = (int)fn - 3;
         if (searchStart < 0) searchStart = 0;
         for (int j = searchStart; j >= 0; --j) {
-            if (shaderCode[j] == '\n') break;
-            if (shaderCode[j] != 't' || shaderCode[j+1] != 'u' || shaderCode[j+2] != 'o') continue;
-            if (j > 0 && isalnum(shaderCode[j-1])) continue;
-            if (j + 3 < (int)fn && isalnum(shaderCode[j+3])) continue;
+            if (src[j] == '\n') break;
+            if (src[j] != 't' || src[j+1] != 'u' || src[j+2] != 'o') continue;
+            if (j > 0 && isalnum(src[j-1])) continue;
+            if (j + 3 < (int)fn && isalnum(src[j+3])) continue;
 
             int layoutStart = -1;
             for (int k = j - 1; k >= 0; --k) {
-                if (!isspace(shaderCode[k])) {
-                    if (k >= 5 && shaderCode.substr(k-5, 6) == "layout") layoutStart = k - 5;
+                if (!isspace(src[k])) {
+                    if (k >= 5 && src.substr(k-5, 6) == "layout") layoutStart = k - 5;
                     break;
                 }
             }
 
             if (layoutStart >= 0) {
-                int rp = (int)shaderCode.find(')', layoutStart);
+                int rp = (int)src.find(')', layoutStart);
                 if (rp >= 0 && rp < j) {
                     size_t os = (size_t)rp + 1;
-                    while (os < shaderCode.size() && isspace(shaderCode[os])) os++;
-                    shaderCode.erase((size_t)layoutStart, os - (size_t)layoutStart);
-                    shaderCode.insert((size_t)layoutStart, newLayout);
+                    while (os < src.size() && isspace(src[os])) os++;
+                    result.append(src, srcPos, (size_t)layoutStart - srcPos);
+                    result.append(newLayout);
+                    srcPos = os;
                 }
             } else {
-                shaderCode.insert((size_t)j, newLayout);
+                result.append(src, srcPos, (size_t)j - srcPos);
+                result.append(newLayout);
+                srcPos = (size_t)j;
             }
-            i = shaderCode.find(';', (size_t)(layoutStart >= 0 ? layoutStart : j)) + 1;
             foundAndFixed = true;
             break;
         }
-        if (!foundAndFixed) i = semi + 1;
+        if (!foundAndFixed) {
+            result.append(src, srcPos, semi + 1 - srcPos);
+            srcPos = semi + 1;
+        }
     }
 
-    char* result = new char[shaderCode.size() + 1];
-    strcpy(result, shaderCode.c_str());
-    return result;
+    char* output = new char[result.size() + 1];
+    memcpy(output, result.c_str(), result.size() + 1);
+    return output;
 }
 
 void glBindFragDataLocation(GLuint program, GLuint color, const GLchar* name) {

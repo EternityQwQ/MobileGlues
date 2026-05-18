@@ -96,9 +96,9 @@ void setupBufferTextureUniforms(GLuint program) {
 void prepareForDraw() {
     LOG_D("prepareForDraw...")
     if (hardware->emulate_texture_buffer) {
-        static uint32_t last_draw_program_gen = 0;
-        static uint32_t last_draw_texture_gen = 0;
-        static GLuint last_draw_program = 0;
+        static thread_local uint32_t last_draw_program_gen = 0;
+        static thread_local uint32_t last_draw_texture_gen = 0;
+        static thread_local GLuint last_draw_program = 0;
 
         if (last_draw_program != gl_state->current_program ||
             last_draw_program_gen != gl_state->program_generation ||

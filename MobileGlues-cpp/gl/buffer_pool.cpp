@@ -9,8 +9,8 @@
 #include "../includes.h"
 #include "mg.h"
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
-#include <ctime>
 #include <list>
 #include <unordered_map>
 #include <vector>
@@ -26,13 +26,13 @@ static const size_t SIZE_CLASSES[] = {
 static const size_t NUM_SIZE_CLASSES = sizeof(SIZE_CLASSES) / sizeof(SIZE_CLASSES[0]);
 
 static const size_t MAX_POOL_TOTAL_SIZE = 64 * 1024 * 1024;
-static const uint64_t CLEANUP_AGE_MS = 5000;
+static const uint32_t POOL_GEN_CLEANUP_THRESHOLD = 2;
 
 struct PooledBuffer {
     GLuint id;
     GLenum target;
     GLsizeiptr size;
-    uint64_t lastUsed;
+    uint32_t lastGeneration;
 };
 
 struct SizeClassPool {
@@ -43,6 +43,7 @@ static std::vector<SizeClassPool> g_sizeClassPools;
 static std::unordered_map<GLuint, size_t> g_usedBufferClass;
 static bool g_pool_initialized = false;
 static size_t g_totalPoolSize = 0;
+static uint32_t g_poolGeneration = 0;
 
 static size_t findSizeClassIndex(GLenum target, size_t minSize) {
     for (size_t i = 0; i < NUM_SIZE_CLASSES; ++i) {
@@ -51,12 +52,6 @@ static size_t findSizeClassIndex(GLenum target, size_t minSize) {
         }
     }
     return NUM_SIZE_CLASSES - 1;
-}
-
-static uint64_t getTimeMs() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
 }
 
 void BufferPool_Init() {
@@ -123,7 +118,7 @@ void BufferPool_Release(GLuint buffer, GLsizeiptr usedSize) {
     pb.id = buffer;
     pb.target = 0;
     pb.size = bufSize;
-    pb.lastUsed = getTimeMs();
+    pb.lastGeneration = g_poolGeneration;
 
     pool.freeList.push_back(pb);
     g_totalPoolSize += bufSize;
@@ -134,7 +129,7 @@ void BufferPool_Release(GLuint buffer, GLsizeiptr usedSize) {
 void BufferPool_Cleanup(size_t maxTotalSize) {
     if (!g_pool_initialized) return;
 
-    uint64_t now = getTimeMs();
+    g_poolGeneration++;
     size_t effectiveMax = (maxTotalSize > 0) ? maxTotalSize : MAX_POOL_TOTAL_SIZE;
 
     for (size_t i = NUM_SIZE_CLASSES; i > 0; --i) {
@@ -143,7 +138,7 @@ void BufferPool_Cleanup(size_t maxTotalSize) {
 
         while (!pool.freeList.empty() && g_totalPoolSize > effectiveMax) {
             PooledBuffer& pb = pool.freeList.front();
-            if (now - pb.lastUsed < CLEANUP_AGE_MS && g_totalPoolSize <= effectiveMax) break;
+            if (g_poolGeneration - pb.lastGeneration < POOL_GEN_CLEANUP_THRESHOLD && g_totalPoolSize <= effectiveMax) break;
 
             GLES.glDeleteBuffers(1, &pb.id);
             g_totalPoolSize -= pb.size;
