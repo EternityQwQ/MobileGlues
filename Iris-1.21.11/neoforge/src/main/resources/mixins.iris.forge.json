@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.irisshaders.iris.mixin.forge",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "MixinGameClientEvents",
+    "MixinFluidRendererImpl",
+    "MixinGooBlock",
+    "MixinItemBlockRenderTypes",
+    "MixinRenderFlame",
+    "MixinRenderMekasuit",
+    "MixinLevelRenderer",
+    "MixinParticleEngine",
+    "MixinRenderSPS",
+    "MixinShadowRenderer",
+    "MixinVBOIE",
+    "PipelineMixin",
+    "PipelineBuilderMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1,
+    "maxShiftBy": 2
+  }
+}
