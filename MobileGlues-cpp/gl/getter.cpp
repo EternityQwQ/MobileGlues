@@ -1,4 +1,4 @@
-// MobileGlues - gl/getter.cpp
+// MobileGLESWrapper - gl/getter.cpp
 // Copyright (c) 2025-2026 MobileGL-Dev
 // Licensed under the GNU Lesser General Public License v2.1:
 //   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
@@ -268,10 +268,10 @@ const GLubyte* glGetString(GLenum name) {
             versionString = GLVersion.toString();
             if (global_settings.hide_mg_env_level == HideMGEnvLevel::Disabled) {
                 if (GLVersion.toInt(2) == DEFAULT_GL_VERSION) {
-                    versionString += " MobileGlues ";
+                    versionString += " MobileGLESWrapper ";
                 } else {
                     Version defaultVersion = Version(DEFAULT_GL_VERSION);
-                    versionString += " §4§l(" + defaultVersion.toString() + ") MobileGlues§r ";
+                    versionString += " §4§l(" + defaultVersion.toString() + ") MobileGLESWrapper§r ";
                 }
 
                 versionString += std::to_string(MAJOR) + "." + std::to_string(MINOR) + "." + std::to_string(REVISION);
@@ -374,7 +374,7 @@ const GLubyte* glGetString(GLenum name) {
                     shadingLangString += GenerateRandomString(junkOpts);
                 }
             } else {
-                shadingLangString = baseVer + " MobileGlues with glslang and SPIRV-Cross";
+                shadingLangString = baseVer + " MobileGLESWrapper with glslang and SPIRV-Cross";
             }
         }
 
