@@ -1,29 +1,25 @@
-#name: Clear Current Branch Files
-# on:
- # workflow_dispatch:  # 手动触发
-  # push:  # 或自动触发
-  #   branches: [your-branch-name]
+name: Clear Current Branch Files
 
-#jobs:
- # clear-files:
-  #  runs-on: ubuntu-latest
-   # steps:
-    #  - name: Checkout current branch
-     #   uses: actions/checkout@v4
-      #  with:
-       #   ref: ${{ github.ref }}  # 明确检出当前分支
-        #  fetch-depth: 0
-          
-     # - name: Remove all files except .git
-      #  run: |
-          # 删除所有文件和目录（保留.git）
-       #   find . -mindepth 1 ! -name '.git' -exec rm -rf {} +
-          
-    #  - name: Commit and push changes
-     #   run: |
-      #    git config --local user.email "action@github.com"
-       #   git config --local user.name "GitHub Action"
-        #  git add -A
-         # git commit -m "Clear all files from branch" || echo "No changes to commit"
-          #git push origin ${{ github.ref }}  
+on:
+  workflow_dispatch:
 
+jobs:
+  clear-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Remove all files
+        run: |
+          git rm -rf . || true
+          rm -rf *
+
+      - name: Commit and push
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git add -A
+          git commit -m "Clear all files from branch" || echo "No changes"
+          git push origin ${{ github.ref }}
