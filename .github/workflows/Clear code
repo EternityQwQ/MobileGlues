@@ -1,0 +1,44 @@
+name: 彻底清零仓库（含历史）
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nuke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 用 orphan 分支覆盖为主分支
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 查出当前默认分支名（多半是 main 或 master）
+          DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+          echo "默认分支: $DEFAULT_BRANCH"
+          
+          # 建一个无历史的孤儿分支
+          git checkout --orphan _clean_orphan
+          
+          # 清掉暂存区和工作区的所有 tracked 文件
+          git rm -rf .
+          
+          # 放一个最小占位（git 不允许空 commit）
+          echo "# $(git remote get-url origin | xargs basename)" > README.md
+          git add README.md
+          
+          git commit -m "chore: repository cleared"
+          
+          # 删掉旧默认分支引用，把孤儿改名推上去
+          git branch -D "$DEFAULT_BRANCH" 2>/dev/null || true
+          git branch -m "$DEFAULT_BRANCH"
+          git push -f origin "$DEFAULT_BRANCH"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
