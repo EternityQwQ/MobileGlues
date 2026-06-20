@@ -15,6 +15,6 @@ jobs:
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: 30        # 保留最近 30 天
+          retain_days: 7        # 保留最近 7 天
           keep_minimum_runs: 6    # 每个 workflow 至少留 6 条
           # dry_run: true         # 先开这个看看会删啥，确认后再关掉
