@@ -251,9 +251,8 @@ void set_multidraw_setting() { // should be called after init_gles_target()
 
 void init_settings_post() {
     bool multidraw = g_gles_caps.GL_EXT_multi_draw_indirect;
-    bool basevertex = g_gles_caps.GL_EXT_draw_elements_base_vertex || g_gles_caps.GL_OES_draw_elements_base_vertex ||
-                      (g_gles_caps.major == 3 && g_gles_caps.minor >= 2) || (g_gles_caps.major > 3);
-    bool indirect = (g_gles_caps.major == 3 && g_gles_caps.minor >= 1) || (g_gles_caps.major > 3);
+    bool basevertex = true;
+    bool indirect = true;
 
     switch (global_settings.multidraw_mode) {
     case multidraw_mode_t::PreferIndirect:
