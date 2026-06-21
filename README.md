@@ -9,7 +9,9 @@
 
 ---
 
-**MobileGLESWrapper**（原 MobileGlues，意为 "(on) Mobile, GL uses ES"）是一个运行在 OpenGL ES 3.x（推荐 3.2，最低 3.0）之上的 GL 实现，主要面向 Minecraft: Java Edition 的运行场景。
+**MobileGLESWrapper**（原 MobileGlues，意为 "(on) Mobile, GL uses ES"）是一个运行在 OpenGL ES 3.2 之上的 GL 实现，主要面向 Minecraft: Java Edition 的运行场景。
+
+> **注意：本项目已放弃对 OpenGL ES 3.1 及更低版本的支持，仅支持 OpenGL ES 3.2。**
 
 # 面向着色器开发者
 
