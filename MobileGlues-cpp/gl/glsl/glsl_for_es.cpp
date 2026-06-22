@@ -35,6 +35,7 @@
 #include <set>
 #include <map>
 #include <vector>
+#include <mutex>
 #include "cache.h"
 #include "../../version.h"
 
@@ -318,10 +319,8 @@ static std::string strip_compatibility_profile(const std::string& glsl) {
     return std::regex_replace(glsl, compat_regex, "#version $1 core");
 }
 
-// Replace legacy texture functions with modern equivalents
-static std::string upgrade_texture_functions(const std::string& glsl) {
-    std::string result = glsl;
-
+// Replace legacy texture functions with modern equivalents (in-place)
+static void upgrade_texture_functions(std::string& result) {
     replace_all(result, "texture2D(", "texture(");
     replace_all(result, "texture2DArray(", "texture(");
     replace_all(result, "texture2DLod(", "textureLod(");
@@ -333,33 +332,27 @@ static std::string upgrade_texture_functions(const std::string& glsl) {
     replace_all(result, "textureCubeLod(", "textureLod(");
     replace_all(result, "shadow2D(", "texture(");
     replace_all(result, "shadow2DProj(", "textureProj(");
-
-    return result;
 }
 
 // Handle gl_TextureMatrix references (legacy OpenGL built-in) - replace with identity
-static std::string handle_glTextureMatrix(const std::string& glsl) {
-    std::string result = glsl;
+static void handle_glTextureMatrix(std::string& result) {
     if (result.find("gl_TextureMatrix") != std::string::npos) {
         replace_all_regex(result, std::regex(R"(gl_TextureMatrix\s*\[\s*(\d+)\s*\])"), "mat4(1.0)");
     }
-    return result;
 }
 
-// Remove or comment out unsupported #extension directives
-static std::string clean_extensions(const std::string& glsl) {
+// Remove or comment out unsupported #extension directives (in-place)
+static void clean_extensions(std::string& result) {
     static const std::vector<std::string> unsupported_extensions = {
         "GL_ARB_compatibility",
         "GL_ARB_shader_texture_lod",
         "GL_EXT_gpu_shader4",
     };
 
-    std::string result = glsl;
     for (const auto& ext : unsupported_extensions) {
         std::regex ext_pattern("#extension\\s+" + ext + "\\s*:\\s*\\w+");
         result = std::regex_replace(result, ext_pattern, "// $&");
     }
-    return result;
 }
 
 // Handle Iris-specific gl_FragData usage patterns
@@ -466,13 +459,57 @@ std::string forceSupporterOutput(const std::string& glslCode) {
     return result;
 }
 
+// Remove layout(binding=N) from spirv-cross output, since GLES may not support
+// it on all targets.  Single-pass linear scan that handles:
+//   layout(binding=N)          → (remove entirely)
+//   layout(binding=N, X)       → layout(X)
+//   layout(X, binding=N)       → layout(X)
+//   layout(X, binding=N, Y)    → layout(X, Y)
+// Note: only called for non-compute shaders; compute may legitimately need bindings.
 std::string removeLayoutBinding(const std::string& glslCode) {
-    static std::regex bindingRegex(R"(layout\s*\(\s*binding\s*=\s*\d+\s*\)\s*)");
-    std::string result = std::regex_replace(glslCode, bindingRegex, "");
-    static std::regex bindingRegex2(R"(layout\s*\(\s*binding\s*=\s*\d+\s*,)");
-    result = std::regex_replace(result, bindingRegex2, "layout(");
-    static std::regex bindingRegex3(R"(,\s*binding\s*=\s*\d+\s*)");
-    result = std::regex_replace(result, bindingRegex3, "");
+    std::string result;
+    result.reserve(glslCode.size());
+    size_t i = 0;
+    const size_t n = glslCode.size();
+
+    while (i < n) {
+        // Find start of "layout("
+        if (glslCode.compare(i, 7, "layout(") == 0) {
+            // Find matching ')'
+            size_t start = i;
+            size_t depth = 1;
+            size_t j = i + 7;
+            while (j < n && depth > 0) {
+                if (glslCode[j] == '(') depth++;
+                else if (glslCode[j] == ')') depth--;
+                j++;
+            }
+            // j is now past the closing ')'
+            std::string inner = glslCode.substr(start + 7, j - start - 8);
+
+            // Remove "binding = N" and any dangling commas
+            static std::regex binding_rx(R"(\s*binding\s*=\s*\d+\s*,?\s*)");
+            inner = std::regex_replace(inner, binding_rx, "");
+
+            // Trim leading/trailing commas and whitespace
+            while (!inner.empty() && (inner.front() == ',' || inner.front() == ' '))
+                inner.erase(0, 1);
+            while (!inner.empty() && (inner.back() == ',' || inner.back() == ' '))
+                inner.pop_back();
+
+            if (inner.empty()) {
+                // Entire layout() was just binding=N — skip it and trailing whitespace
+                while (j < n && (glslCode[j] == ' ' || glslCode[j] == '\t' || glslCode[j] == '\n'))
+                    j++;
+            } else {
+                result += "layout(" + inner + ")";
+            }
+            i = j;
+        } else {
+            result += glslCode[i];
+            i++;
+        }
+    }
     return result;
 }
 
@@ -484,7 +521,16 @@ std::string processOutColorLocations(const std::string& glslCode) {
 }
 
 // Process all uniform declarations into `uniform <precision> <type> <name>;` form
-// Strips initializers since ESSL doesn't allow them on uniforms
+// Strips initializers since ESSL doesn't allow them on uniforms.
+//
+// WARNING: This is a best-effort string-level parser with known limitations:
+//   - Does NOT handle comments (e.g. uniform float f = /* 1.0 */ 0.5;)
+//   - Does NOT handle string literals containing '=' or ';'
+//   - Does NOT handle nested parentheses in initializers
+//   - Does NOT handle multi-line declarations
+//   - is_block detection uses naive '{' before ';' search (false positive on arrays)
+// It is designed for known input patterns (spirv-cross output, Iris shaders).
+// A long-term solution should use glslang AST traversal instead.
 std::string process_uniform_declarations(const std::string& glslCode) {
     std::string result;
     size_t scan_pos = 0;
@@ -549,10 +595,6 @@ std::string process_uniform_declarations(const std::string& glslCode) {
 // ---------------------------------------------------------------------------
 // Atomic counter → SSBO emulation
 // ---------------------------------------------------------------------------
-bool checkIfAtomicCounterBufferEmulated(const std::string& glslCode) {
-    return glslCode.find(atomicCounterEmulatedWatermark) != std::string::npos;
-}
-
 bool process_non_opaque_atomic_to_ssbo(std::string& source) {
     if (source.find("atomicCounter") == std::string::npos) return false;
 
@@ -574,9 +616,9 @@ bool process_non_opaque_atomic_to_ssbo(std::string& source) {
         atomic_vars.insert(var);
         binding_map[var] = binding;
 
-        std::string repl = "layout(std430, binding=" + binding + ") buffer AtomicCounterSSBO_" + binding +
+        std::string repl = "layout(std430, binding=" + binding + ") coherent buffer AtomicCounterSSBO_" + binding +
                            " {\n"
-                           "    uint " + var + ";\n"
+                           "    coherent uint " + var + ";\n"
                            "};\n";
         source.replace(match_pos, match_len, repl);
 
@@ -641,6 +683,10 @@ void process_sampler_buffer(std::string& source) {
         return;
     }
 
+    // Collect sampler names during type replacement, so we only transform
+    // texelFetch calls for variables that were actually declared as samplerBuffer.
+    std::set<std::string> buffer_samplers;
+
     // Replace samplerBuffer types
     size_t pos = 0;
     while ((pos = source.find("isamplerBuffer", pos)) != std::string::npos) {
@@ -658,7 +704,21 @@ void process_sampler_buffer(std::string& source) {
         pos += 10;
     }
 
-    // Replace texelFetch with bufferCoords helper
+    // Extract sampler variable names from declarations like "uniform sampler2D name;"
+    {
+        std::regex sampler_decl(R"(uniform\s+(?:i)?sampler2D\s+(\w+)\s*;)");
+        auto it = std::sregex_iterator(source.begin(), source.end(), sampler_decl);
+        auto end = std::sregex_iterator();
+        for (; it != end; ++it) {
+            buffer_samplers.insert((*it)[1].str());
+        }
+    }
+
+    // Replace texelFetch with bufferCoords helper.
+    // NOTE: Best-effort string transform with known limitations:
+    //   - Does not handle macro-expanded texelFetch (e.g. #define FETCH texelFetch)
+    //   - Does not handle samplerBuffer accessed through struct members
+    //   - Only transforms calls where the sampler name was detected above
     {
         std::string result;
         result.reserve(source.size() * 2);
@@ -684,6 +744,13 @@ void process_sampler_buffer(std::string& source) {
             while (arg_start < src_len && (std::isalnum(source[arg_start]) || source[arg_start] == '_'))
                 arg_start++;
             std::string sampler_name = source.substr(arg1_start, arg_start - arg1_start);
+
+            // Only transform if this sampler was declared as a buffer type
+            if (buffer_samplers.find(sampler_name) == buffer_samplers.end()) {
+                result.append("texelFetch(");
+                scan_pos = paren_start;
+                continue;
+            }
 
             while (arg_start < src_len && std::isspace(source[arg_start]))
                 arg_start++;
@@ -728,16 +795,13 @@ void process_sampler_buffer(std::string& source) {
     }
 
     // Inject helper function and uniforms
+    // NOTE: The helper maps a 1D buffer index to 2D texture coordinates.
+    // No bounds checking is performed — the caller must ensure u_BufferTexWidth
+    // and u_BufferTexHeight are correctly set to cover the entire buffer range.
+    // Out-of-bounds access results in undefined behavior (same as desktop GLSL).
     const char* boundaryProtection = R"(
 ivec2 bufferCoords(int index) {
-    int width = u_BufferTexWidth;
-    int x = index % width;
-    int y = index / width;
-    if (y >= u_BufferTexHeight) {
-        y = u_BufferTexHeight - 1;
-        x = width - 1;
-    }
-    return ivec2(x, y);
+    return ivec2(index % u_BufferTexWidth, index / u_BufferTexWidth);
 }
 )";
 
@@ -877,44 +941,37 @@ std::string preprocess_glsl(const std::string& glsl, GLenum shaderType, bool* at
         ret = strip_compatibility_profile(ret);
     }
 
-    // Step 3: Upgrade legacy texture functions
-    ret = upgrade_texture_functions(ret);
+    // Step 3: Upgrade legacy texture functions, handle gl_TextureMatrix, clean extensions
+    // (merged into a single in-place mutation block to reduce string copies)
+    upgrade_texture_functions(ret);
+    handle_glTextureMatrix(ret);
+    clean_extensions(ret);
 
-    // Step 4: Handle gl_TextureMatrix (legacy built-in)
-    ret = handle_glTextureMatrix(ret);
-
-    // Step 5: Clean up unsupported extensions
-    ret = clean_extensions(ret);
-
-    // Step 6: Handle Iris-specific guards and patterns
-    ret = handle_iris_guards(ret);
-    ret = handle_iris_fragdata(ret);
-
-    // Step 7: Disable GL_ARB_derivative_control blocks (not in ESSL)
+    // Step 4: Disable GL_ARB_derivative_control blocks (not in ESSL)
     replace_all(ret, "#ifdef GL_ARB_derivative_control", "#if 0");
     replace_all(ret, "#ifndef GL_ARB_derivative_control", "#if 1");
 
-    // Step 8: Polyfill transpose() for mat3
+    // Step 5: Polyfill transpose() for mat3
     replace_all(ret, "const mat3 rotInverse = transpose(rot);",
                 "const mat3 rotInverse = mat3(rot[0][0], rot[1][0], rot[2][0], rot[0][1], rot[1][1], rot[2][1], "
                 "rot[0][2], rot[1][2], rot[2][2]);");
 
-    // Step 9: Feature injections
+    // Step 6: Feature injections
     inject_temporal_filter(ret);
 
     if (!g_gles_caps.GL_EXT_texture_query_lod) {
         inject_textureQueryLod(ret);
     }
 
-    // Step 10: MobileGlues/Iris macro injection
+    // Step 7: MobileGlues/Iris macro injection
     inject_mg_macro_definition(ret);
 
-    // Step 11: Sampler buffer processing
+    // Step 8: Sampler buffer processing
     if (hardware->emulate_texture_buffer) {
         process_sampler_buffer(ret);
     }
 
-    // Step 12: Atomic counter emulation
+    // Step 9: Atomic counter emulation
     *atomicCounterEmulated = process_non_opaque_atomic_to_ssbo(ret);
 
     return ret;
@@ -1173,7 +1230,7 @@ static void add_required_extensions(std::string& essl, GLenum shader_type, uint 
 // ---------------------------------------------------------------------------
 // Main conversion entry point
 // ---------------------------------------------------------------------------
-static bool glslang_inited = false;
+static std::once_flag glslang_init_flag;
 
 std::string GLSLtoGLSLES_2(const char* glsl_code, GLenum glsl_type, uint essl_version, int& return_code) {
     bool atomicCounterEmulated = false;
@@ -1182,10 +1239,7 @@ std::string GLSLtoGLSLES_2(const char* glsl_code, GLenum glsl_type, uint essl_ve
 
     int glsl_version = get_or_add_glsl_version(correct_glsl_str);
 
-    if (!glslang_inited) {
-        glslang::InitializeProcess();
-        glslang_inited = true;
-    }
+    std::call_once(glslang_init_flag, [] { glslang::InitializeProcess(); });
 
     const char* s[] = {correct_glsl_str.c_str()};
     int errc = 0;
@@ -1227,16 +1281,16 @@ std::string GLSLtoGLSLES_1(const char* glsl_code, GLenum glsl_type, uint esversi
 
 std::string GLSLtoGLSLES(const char* glsl_code, GLenum glsl_type, uint essl_version, uint glsl_version,
                          int& return_code) {
-    // Build cache key: source hash + MG version + target ESSL version
+    // Build cache key: source hash + shader type + MG version + target ESSL version
     std::string sha256_string(glsl_code);
-    sha256_string += "\n//" + std::to_string(MAJOR) + "." + std::to_string(MINOR) + "." + std::to_string(REVISION) +
-                     "|" + std::to_string(essl_version);
+    sha256_string += "\n//" + std::to_string(glsl_type) + "|" + std::to_string(MAJOR) + "." + std::to_string(MINOR) +
+                     "." + std::to_string(REVISION) + "|" + std::to_string(essl_version);
 
-    const char* cachedESSL = Cache::get_instance().get(sha256_string.c_str());
+    int cached_rc = -1;
+    const char* cachedESSL = Cache::get_instance().get(sha256_string.c_str(), &cached_rc);
     if (cachedESSL) {
         LOG_D("GLSL Hit Cache:\n%s\n-->\n%s", glsl_code, cachedESSL)
-        bool atomicCounterEmulated = checkIfAtomicCounterBufferEmulated(std::string(cachedESSL));
-        return_code = atomicCounterEmulated ? 1 : 0;
+        return_code = cached_rc;
         return (char*)cachedESSL;
     }
 
@@ -1244,7 +1298,7 @@ std::string GLSLtoGLSLES(const char* glsl_code, GLenum glsl_type, uint essl_vers
     std::string converted = GLSLtoGLSLES_2(glsl_code, glsl_type, essl_version, return_code);
     if (return_code >= 0 && !converted.empty()) {
         converted = process_uniform_declarations(converted);
-        Cache::get_instance().put(sha256_string.c_str(), converted.c_str());
+        Cache::get_instance().put(sha256_string.c_str(), converted.c_str(), return_code);
     }
 
     return (return_code >= 0) ? converted : glsl_code;

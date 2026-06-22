@@ -123,30 +123,31 @@ Cache::Cache() {
     load();
 }
 
-const char* Cache::get(const char* glsl) {
+const char* Cache::get(const char* glsl, int* return_code) {
     if (global_settings.max_glsl_cache_size <= 0) return nullptr;
     auto hash = computeSHA256(glsl);
     auto it = cacheMap.find(hash);
     if (it == cacheMap.end()) return nullptr;
 
     cacheList.splice(cacheList.end(), cacheList, it->second);
+    if (return_code) *return_code = it->second->return_code;
     return it->second->essl.c_str();
 }
 
-void Cache::put(const char* glsl, const char* essl) {
+void Cache::put(const char* glsl, const char* essl, int return_code) {
     if (global_settings.max_glsl_cache_size <= 0) return;
     auto hash = computeSHA256(glsl);
     size_t esslStrSize = strlen(essl) + 1;
 
-    size_t entryMemory = sizeof(CacheEntry::sha256) + sizeof(size_t) + esslStrSize;
+    size_t entryMemory = sizeof(CacheEntry::sha256) + sizeof(size_t) + sizeof(int) + esslStrSize;
 
     if (auto it = cacheMap.find(hash); it != cacheMap.end()) {
-        cacheSize -= (sizeof(CacheEntry::sha256) + sizeof(size_t) + it->second->size);
+        cacheSize -= (sizeof(CacheEntry::sha256) + sizeof(size_t) + sizeof(int) + it->second->size);
         cacheList.erase(it->second);
         cacheMap.erase(it);
     }
 
-    cacheList.emplace_back(CacheEntry{hash, essl, esslStrSize});
+    cacheList.emplace_back(CacheEntry{hash, essl, esslStrSize, return_code});
     cacheMap[hash] = prev(cacheList.end());
     cacheSize += entryMemory;
 
@@ -158,7 +159,7 @@ void Cache::maintainCacheSize() {
     if (global_settings.max_glsl_cache_size <= 0) return;
     while (cacheSize > global_settings.max_glsl_cache_size && !cacheList.empty()) {
         const auto& oldEntry = cacheList.front();
-        size_t removedMemory = sizeof(CacheEntry::sha256) + sizeof(size_t) + oldEntry.size;
+        size_t removedMemory = sizeof(CacheEntry::sha256) + sizeof(size_t) + sizeof(int) + oldEntry.size;
         cacheSize -= removedMemory;
         cacheMap.erase(oldEntry.sha256);
         cacheList.pop_front();
@@ -175,9 +176,11 @@ bool Cache::load() {
 
         while (count--) {
             array<uint8_t, 32> hash{};
+            int return_code = 0;
             size_t esslSize;
 
             file.read(reinterpret_cast<char*>(hash.data()), hash.size());
+            file.read(reinterpret_cast<char*>(&return_code), sizeof(return_code));
             file.read(reinterpret_cast<char*>(&esslSize), sizeof(esslSize));
 
             string essl(esslSize, '\0');
@@ -185,10 +188,10 @@ bool Cache::load() {
 
             if (cacheMap.count(hash)) continue;
 
-            size_t entryMemory = sizeof(CacheEntry::sha256) + sizeof(size_t) + esslSize;
+            size_t entryMemory = sizeof(CacheEntry::sha256) + sizeof(size_t) + sizeof(int) + esslSize;
             cacheSize += entryMemory;
 
-            cacheList.emplace_back(CacheEntry{hash, move(essl), esslSize});
+            cacheList.emplace_back(CacheEntry{hash, move(essl), esslSize, return_code});
             cacheMap[hash] = prev(cacheList.end());
         }
 
@@ -215,6 +218,7 @@ void Cache::save() {
 
     for (const auto& entry : cacheList) {
         file.write(reinterpret_cast<const char*>(entry.sha256.data()), (long)entry.sha256.size());
+        file.write(reinterpret_cast<const char*>(&entry.return_code), sizeof(entry.return_code));
         size_t esslSize = entry.size;
         file.write(reinterpret_cast<const char*>(&esslSize), sizeof(esslSize));
         file.write(entry.essl.data(), (long)esslSize);
