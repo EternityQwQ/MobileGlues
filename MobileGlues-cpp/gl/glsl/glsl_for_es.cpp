@@ -999,18 +999,8 @@ std::vector<unsigned int> glsl_to_spirv(GLenum shader_type, int glsl_version, co
     shader.setEnvInput(EShSourceGlsl, shader_language, EShClientOpenGL, target_gl_version);
 
     // Map to the appropriate EShTargetOpenGL version
-    EShTargetLanguageVersion target_gl;
-    switch (target_gl_version) {
-    case 460: target_gl = EShTargetOpenGL_450; break; // glslang max is 450
-    case 450: target_gl = EShTargetOpenGL_450; break;
-    case 440: target_gl = EShTargetOpenGL_440; break;
-    case 430: target_gl = EShTargetOpenGL_430; break;
-    case 420: target_gl = EShTargetOpenGL_420; break;
-    case 410: target_gl = EShTargetOpenGL_410; break;
-    case 400: target_gl = EShTargetOpenGL_400; break;
-    case 330: target_gl = EShTargetOpenGL_330; break;
-    default:  target_gl = EShTargetOpenGL_450; break;
-    }
+    // NOTE: newer glslang only supports EShTargetOpenGL_450 as the sole OpenGL client version
+    EShTargetClientVersion target_gl = EShTargetOpenGL_450;
     shader.setEnvClient(EShClientOpenGL, target_gl);
     shader.setEnvTarget(EShTargetSpv, EShTargetSpv_1_5);
 
@@ -1041,7 +1031,7 @@ std::vector<unsigned int> glsl_to_spirv(GLenum shader_type, int glsl_version, co
         // Retry with higher version (460 → 450)
         if (target_gl_version < 450) {
             int retry_version = 450;
-            EShTargetLanguageVersion retry_target = EShTargetOpenGL_450;
+            EShTargetClientVersion retry_target = EShTargetOpenGL_450;
             shader.setEnvInput(EShSourceGlsl, shader_language, EShClientOpenGL, retry_version);
             shader.setEnvClient(EShClientOpenGL, retry_target);
 
