@@ -20,8 +20,8 @@
 class Cache {
 public:
     Cache();
-    const char* get(const char* glsl);
-    void put(const char* glsl, const char* essl);
+    const char* get(const char* glsl, int* return_code = nullptr);
+    void put(const char* glsl, const char* essl, int return_code = 0);
     bool load();
     void save();
 
@@ -32,6 +32,7 @@ private:
         std::array<uint8_t, 32> sha256;
         std::string essl;
         size_t size;
+        int return_code = 0;
     };
 
     struct SHA256Hash {
