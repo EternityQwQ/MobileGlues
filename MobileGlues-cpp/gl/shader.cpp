@@ -16,6 +16,8 @@
 #include <cstring>
 #include <string>
 
+#define DEBUG 0
+
 // ---------------------------------------------------------------------------
 // Determine if shader is already ES-compatible (direct passthrough)
 // ---------------------------------------------------------------------------

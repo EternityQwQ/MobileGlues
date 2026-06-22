@@ -5,11 +5,14 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 // End of Source File Header
 
+#include "../includes.h"
 #include "program.h"
 #include "../gles/loader.h"
 #include "log.h"
 #include <GL/gl.h>
 #include <cstring>
+
+#define DEBUG 0
 
 // ---------------------------------------------------------------------------
 // Iris Shader Pipeline: Program/Shader Management
