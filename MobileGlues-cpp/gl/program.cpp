@@ -34,16 +34,6 @@ void glAttachShader(GLuint program, GLuint shader) {
 }
 
 // ---------------------------------------------------------------------------
-// glDetachShader: Track detached shaders
-// ---------------------------------------------------------------------------
-void glDetachShader(GLuint program, GLuint shader) {
-    LOG()
-    LOG_D("glDetachShader: program=%d, shader=%d", program, shader)
-
-    GLES.glDetachShader(program, shader);
-}
-
-// ---------------------------------------------------------------------------
 // glLinkProgram: Link the program (runs after all shaders are attached)
 // ---------------------------------------------------------------------------
 void glLinkProgram(GLuint program) {
@@ -77,11 +67,8 @@ void glUseProgram(GLuint program) {
 
 // ---------------------------------------------------------------------------
 // glDeleteProgram: Clean up program resources
+// (handled by gl_native.cpp)
 // ---------------------------------------------------------------------------
-void glDeleteProgram(GLuint program) {
-    LOG()
-    GLES.glDeleteProgram(program);
-}
 
 // ---------------------------------------------------------------------------
 // glCreateProgram: Create a new program object
@@ -107,11 +94,8 @@ GLuint glCreateShader(GLenum shaderType) {
 
 // ---------------------------------------------------------------------------
 // glDeleteShader: Delete a shader object
+// (handled by gl_native.cpp)
 // ---------------------------------------------------------------------------
-void glDeleteShader(GLuint shader) {
-    LOG()
-    GLES.glDeleteShader(shader);
-}
 
 // ---------------------------------------------------------------------------
 // glValidateProgram: Validate the program for current GL state
@@ -136,49 +120,24 @@ void glValidateProgram(GLuint program) {
 }
 
 // ---------------------------------------------------------------------------
-// Uniform management
+// Uniform management / Program queries / glBindAttribLocation / glGet* / glProgramUniform*
+// These are handled by gl_native.cpp (NATIVE_FUNCTION_HEAD macros).
 // ---------------------------------------------------------------------------
-GLint glGetUniformLocation(GLuint program, const GLchar* name) {
-    return GLES.glGetUniformLocation(program, name);
-}
 
-void glUniform1f(GLint location, GLfloat v0) { GLES.glUniform1f(location, v0); }
-void glUniform1i(GLint location, GLint v0) { GLES.glUniform1i(location, v0); }
-void glUniform1fv(GLint location, GLsizei count, const GLfloat* value) { GLES.glUniform1fv(location, count, value); }
-void glUniform1iv(GLint location, GLsizei count, const GLint* value) { GLES.glUniform1iv(location, count, value); }
-void glUniform2f(GLint location, GLfloat v0, GLfloat v1) { GLES.glUniform2f(location, v0, v1); }
-void glUniform2fv(GLint location, GLsizei count, const GLfloat* value) { GLES.glUniform2fv(location, count, value); }
-void glUniform2i(GLint location, GLint v0, GLint v1) { GLES.glUniform2i(location, v0, v1); }
-void glUniform3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2) { GLES.glUniform3f(location, v0, v1, v2); }
-void glUniform3fv(GLint location, GLsizei count, const GLfloat* value) { GLES.glUniform3fv(location, count, value); }
-void glUniform3i(GLint location, GLint v0, GLint v1, GLint v2) { GLES.glUniform3i(location, v0, v1, v2); }
-void glUniform4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3) { GLES.glUniform4f(location, v0, v1, v2, v3); }
-void glUniform4fv(GLint location, GLsizei count, const GLfloat* value) { GLES.glUniform4fv(location, count, value); }
-void glUniform4i(GLint location, GLint v0, GLint v1, GLint v2, GLint v3) { GLES.glUniform4i(location, v0, v1, v2, v3); }
-void glUniformMatrix2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) { GLES.glUniformMatrix2fv(location, count, transpose, value); }
-void glUniformMatrix3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) { GLES.glUniformMatrix3fv(location, count, transpose, value); }
-void glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) { GLES.glUniformMatrix4fv(location, count, transpose, value); }
-
-void glGetProgramiv(GLuint program, GLenum pname, GLint* params) { GLES.glGetProgramiv(program, pname, params); }
-void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog) { GLES.glGetProgramInfoLog(program, bufSize, length, infoLog); }
-void glGetShaderiv(GLuint shader, GLenum pname, GLint* params) { GLES.glGetShaderiv(shader, pname, params); }
-void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog) { GLES.glGetShaderInfoLog(shader, bufSize, length, infoLog); }
-
-void glBindAttribLocation(GLuint program, GLuint index, const GLchar* name) { GLES.glBindAttribLocation(program, index, name); }
+// ---------------------------------------------------------------------------
+// glBindFragDataLocation: Map to EXT variant for OpenGL ES compatibility
+// ---------------------------------------------------------------------------
 void glBindFragDataLocation(GLuint program, GLuint color, const GLchar* name) { GLES.glBindFragDataLocationEXT(program, color, name); }
-GLint glGetAttribLocation(GLuint program, const GLchar* name) { return GLES.glGetAttribLocation(program, name); }
-GLint glGetFragDataLocation(GLuint program, const GLchar* name) { return GLES.glGetFragDataLocation(program, name); }
 
-void glProgramUniform1f(GLuint program, GLint location, GLfloat v0) { GLES.glProgramUniform1f(program, location, v0); }
-void glProgramUniform1i(GLuint program, GLint location, GLint v0) { GLES.glProgramUniform1i(program, location, v0); }
-void glProgramUniform1fv(GLuint program, GLint location, GLsizei count, const GLfloat* value) { GLES.glProgramUniform1fv(program, location, count, value); }
-void glProgramUniform1iv(GLuint program, GLint location, GLsizei count, const GLint* value) { GLES.glProgramUniform1iv(program, location, count, value); }
-void glProgramUniform2f(GLuint program, GLint location, GLfloat v0, GLfloat v1) { GLES.glProgramUniform2f(program, location, v0, v1); }
-void glProgramUniform2fv(GLuint program, GLint location, GLsizei count, const GLfloat* value) { GLES.glProgramUniform2fv(program, location, count, value); }
-void glProgramUniform3f(GLuint program, GLint location, GLfloat v0, GLfloat v1, GLfloat v2) { GLES.glProgramUniform3f(program, location, v0, v1, v2); }
-void glProgramUniform4f(GLuint program, GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3) { GLES.glProgramUniform4f(program, location, v0, v1, v2, v3); }
-void glProgramUniformMatrix4fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value) { GLES.glProgramUniformMatrix4fv(program, location, count, transpose, value); }
+// ---------------------------------------------------------------------------
+// glGetProgramiv / glGetShaderiv: Stub implementations (native version commented out in gl_native.cpp)
+// ---------------------------------------------------------------------------
+void glGetProgramiv(GLuint program, GLenum pname, GLint* params) { GLES.glGetProgramiv(program, pname, params); }
+void glGetShaderiv(GLuint shader, GLenum pname, GLint* params) { GLES.glGetShaderiv(shader, pname, params); }
 
+// ---------------------------------------------------------------------------
+// glShaderSource: Forward declaration (defined in shader.cpp with GLSL conversion)
+// ---------------------------------------------------------------------------
 void glShaderSource(GLuint, GLsizei, const GLchar* const*, const GLint*);
 void glCompileShader(GLuint shader) {
     LOG()

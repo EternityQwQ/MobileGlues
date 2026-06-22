@@ -35,7 +35,7 @@ NATIVE_FUNCTION_HEAD(void, glClearColor, GLfloat red, GLfloat green, GLfloat blu
 NATIVE_FUNCTION_HEAD(void, glClearDepthf, GLfloat d) NATIVE_FUNCTION_END_NO_RETURN(void, glClearDepthf, d)
 NATIVE_FUNCTION_HEAD(void, glClearStencil, GLint s) NATIVE_FUNCTION_END_NO_RETURN(void, glClearStencil, s)
 NATIVE_FUNCTION_HEAD(void, glColorMask, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha) NATIVE_FUNCTION_END_NO_RETURN(void, glColorMask, red,green,blue,alpha)
-NATIVE_FUNCTION_HEAD(void, glCompileShader, GLuint shader) NATIVE_FUNCTION_END_NO_RETURN(void, glCompileShader, shader)
+//NATIVE_FUNCTION_HEAD(void, glCompileShader, GLuint shader) NATIVE_FUNCTION_END_NO_RETURN(void, glCompileShader, shader) // → program.cpp
 NATIVE_FUNCTION_HEAD(void, glCompressedTexImage2D, GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data) NATIVE_FUNCTION_END_NO_RETURN(void, glCompressedTexImage2D, target,level,internalformat,width,height,border,imageSize,data)
 NATIVE_FUNCTION_HEAD(void, glCompressedTexSubImage2D, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data) NATIVE_FUNCTION_END_NO_RETURN(void, glCompressedTexSubImage2D, target,level,xoffset,yoffset,width,height,format,imageSize,data)
 //NATIVE_FUNCTION_HEAD(void, glCopyTexImage2D, GLenum target, GLint level, GLenum internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border) NATIVE_FUNCTION_END_NO_RETURN(void, glCopyTexImage2D, target,level,internalformat,x,y,width,height,border)
@@ -145,7 +145,7 @@ NATIVE_FUNCTION_HEAD(void, glUniformMatrix2fv, GLint location, GLsizei count, GL
 NATIVE_FUNCTION_HEAD(void, glUniformMatrix3fv, GLint location, GLsizei count, GLboolean transpose, const GLfloat *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniformMatrix3fv, location,count,transpose,value)
 NATIVE_FUNCTION_HEAD(void, glUniformMatrix4fv, GLint location, GLsizei count, GLboolean transpose, const GLfloat *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniformMatrix4fv, location,count,transpose,value)
 //NATIVE_FUNCTION_HEAD(void, glUseProgram, GLuint program) NATIVE_FUNCTION_END_NO_RETURN(void, glUseProgram, program)
-NATIVE_FUNCTION_HEAD(void, glValidateProgram, GLuint program) NATIVE_FUNCTION_END_NO_RETURN(void, glValidateProgram, program)
+//NATIVE_FUNCTION_HEAD(void, glValidateProgram, GLuint program) NATIVE_FUNCTION_END_NO_RETURN(void, glValidateProgram, program) // → program.cpp
 NATIVE_FUNCTION_HEAD(void, glVertexAttrib1f, GLuint index, GLfloat x) NATIVE_FUNCTION_END_NO_RETURN(void, glVertexAttrib1f, index,x)
 NATIVE_FUNCTION_HEAD(void, glVertexAttrib1fv, GLuint index, const GLfloat *v) NATIVE_FUNCTION_END_NO_RETURN(void, glVertexAttrib1fv, index,v)
 NATIVE_FUNCTION_HEAD(void, glVertexAttrib2f, GLuint index, GLfloat x, GLfloat y) NATIVE_FUNCTION_END_NO_RETURN(void, glVertexAttrib2f, index,x,y)
