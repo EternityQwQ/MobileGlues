@@ -235,17 +235,6 @@ void glMultiDrawArrays(GLenum mode, const GLint* first, const GLsizei* count, GL
 // Defined in multidraw.cpp – keep as-is.
 
 // ============================================================================
-// glClear (native)
-// ============================================================================
-
-void glClear(GLbitfield mask) {
-    LOG()
-    LOG_D("glClear, mask: 0x%x", mask)
-    GLES.glClear(mask);
-    CHECK_GL_ERROR
-}
-
-// ============================================================================
 // Other functions (keep existing logic)
 // ============================================================================
 

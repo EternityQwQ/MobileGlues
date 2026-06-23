@@ -1174,28 +1174,6 @@ void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* p
 }
 
 // ============================================================================
-// Native texture buffer functions (ES 3.2)
-// ============================================================================
-
-// --- glTexBuffer (native, ES 3.2 supports it) ---
-void glTexBuffer(GLenum target, GLenum internalformat, GLuint buffer) {
-    LOG()
-    LOG_D("glTexBuffer, target: %s, internalformat: %s, buffer: %d", glEnumToString(target),
-          glEnumToString(internalformat), buffer)
-    GLES.glTexBuffer(target, internalformat, buffer);
-    CHECK_GL_ERROR
-}
-
-// --- glTexBufferRange (native, ES 3.2 supports it) ---
-void glTexBufferRange(GLenum target, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
-    LOG()
-    LOG_D("glTexBufferRange, target: %s, internalformat: %s, buffer: %d, offset: %ld, size: %ld",
-          glEnumToString(target), glEnumToString(internalformat), buffer, (long)offset, (long)size)
-    GLES.glTexBufferRange(target, internalformat, buffer, offset, size);
-    CHECK_GL_ERROR
-}
-
-// ============================================================================
 // CPU-simulated 1D texture functions (ES 3.2 does NOT support 1D textures)
 // ============================================================================
 
