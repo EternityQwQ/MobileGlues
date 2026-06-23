@@ -49,14 +49,7 @@ void glDeleteProgram(GLuint program) {
 // Shader Object Lifecycle (ES 3.2 native)
 // ============================================================================
 
-GLuint glCreateShader(GLenum shaderType) {
-    LOG()
-    LOG_D("glCreateShader: type=%d (%s)", shaderType, glEnumToString(shaderType))
-
-    GLuint shader = GLES.glCreateShader(shaderType);
-    LOG_D("glCreateShader: created shader=%d", shader)
-    return shader;
-}
+// glCreateShader is handled in shader.cpp (GLSL conversion pipeline)
 
 void glDeleteShader(GLuint shader) {
     LOG()
@@ -72,25 +65,7 @@ void glDeleteShader(GLuint shader) {
 
 void glShaderSource(GLuint, GLsizei, const GLchar* const*, const GLint*);
 
-void glCompileShader(GLuint shader) {
-    LOG()
-    GLES.glCompileShader(shader);
-
-    GLint compileStatus = 0;
-    GLES.glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
-    if (compileStatus == GL_FALSE) {
-        GLint infoLogLength = 0;
-        GLES.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
-        if (infoLogLength > 1) {
-            char* infoLog = new char[infoLogLength];
-            GLES.glGetShaderInfoLog(shader, infoLogLength, nullptr, infoLog);
-            LOG_E("glCompileShader FAILED (shader=%d): %s", shader, infoLog)
-            delete[] infoLog;
-        }
-    } else {
-        LOG_D("glCompileShader: shader=%d compiled successfully", shader)
-    }
-}
+// glCompileShader is handled in shader.cpp (GLSL conversion pipeline)
 
 // ============================================================================
 // Program Linking & Validation (ES 3.2 native)

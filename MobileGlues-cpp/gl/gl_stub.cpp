@@ -471,9 +471,7 @@ CPU_SIM_FUNCTION_HEAD(void, glDepthRange, GLclampd near_val, GLclampd far_val)
     GLES.glDepthRangef((GLfloat)near_val, (GLfloat)far_val);
 CPU_SIM_FUNCTION_END_NO_RETURN(void, glDepthRange, near_val, far_val)
 
-CPU_SIM_FUNCTION_HEAD(void, glDrawBuffer, GLenum mode)
-    GLES.glDrawBuffers(1, &mode);
-CPU_SIM_FUNCTION_END_NO_RETURN(void, glDrawBuffer, mode)
+// glDrawBuffer is handled in framebuffer.cpp (mapped to glDrawBuffers)
 
 CPU_SIM_FUNCTION_HEAD(void, glPolygonMode, GLenum face, GLenum mode)
     // CPU simulate GL_POINT/GL_LINE by generating line/polygon tessellation.
@@ -757,7 +755,7 @@ STUB_FUNCTION_HEAD(void, glGetTexEnviv, GLenum target, GLenum pname, GLint *para
 
 STUB_FUNCTION_HEAD(void, glPrioritizeTextures, GLsizei n,const GLuint *textures,const GLclampf *priorities ) STUB_FUNCTION_END_NO_RETURN(void, glPrioritizeTextures,n,textures,priorities)
 STUB_FUNCTION_HEAD(GLboolean, glAreTexturesResident, GLsizei n,const GLuint *textures, GLboolean *residences ) STUB_FUNCTION_END(GLboolean, glAreTexturesResident,n,textures,residences)
-STUB_FUNCTION_HEAD(void, glTexSubImage1D, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const GLvoid* pixels ) STUB_FUNCTION_END_NO_RETURN(void, glTexSubImage1D,target,level,xoffset,width,format,type,pixels)
+// glTexSubImage1D is handled in texture.cpp (CPU simulation → 2D)
 STUB_FUNCTION_HEAD(void, glCopyTexSubImage1D, GLenum target, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width ) STUB_FUNCTION_END_NO_RETURN(void, glCopyTexSubImage1D,target,level,xoffset,x,y,width)
 
 /*
@@ -867,7 +865,7 @@ STUB_FUNCTION_HEAD(void, glLoadTransposeMatrixf,const GLfloat* m); STUB_FUNCTION
 STUB_FUNCTION_HEAD(void, glLoadTransposeMatrixd,const GLdouble* m); STUB_FUNCTION_END_NO_RETURN(void, glLoadTransposeMatrixd,m)
 STUB_FUNCTION_HEAD(void, glMultTransposeMatrixf,const GLfloat* m); STUB_FUNCTION_END_NO_RETURN(void, glMultTransposeMatrixf,m)
 STUB_FUNCTION_HEAD(void, glMultTransposeMatrixd,const GLdouble* m); STUB_FUNCTION_END_NO_RETURN(void, glMultTransposeMatrixd,m)
-STUB_FUNCTION_HEAD(void, glMultiDrawArrays, GLenum mode, const GLint* first, const GLsizei* count, GLsizei drawcount); STUB_FUNCTION_END_NO_RETURN(void, glMultiDrawArrays,mode,first,count,drawcount)
+// glMultiDrawArrays is handled in drawing.cpp (CPU simulation)
 STUB_FUNCTION_HEAD(void, glPointParameterf, GLenum pname, GLfloat param); STUB_FUNCTION_END_NO_RETURN(void, glPointParameterf,pname,param)
 STUB_FUNCTION_HEAD(void, glPointParameterfv, GLenum pname, const GLfloat* params); STUB_FUNCTION_END_NO_RETURN(void, glPointParameterfv,pname,params)
 STUB_FUNCTION_HEAD(void, glPointParameteri, GLenum pname, GLint param); STUB_FUNCTION_END_NO_RETURN(void, glPointParameteri,pname,param)
