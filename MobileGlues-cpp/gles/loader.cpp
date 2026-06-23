@@ -116,6 +116,7 @@ void set_hardware() {
     // ES 3.2-only: always set version to 320 — no per-version branching needed.
     hardware = new hardware_s;
     hardware->es_version = 320;
+    hardware->emulate_texture_buffer = false;  // ES 3.2 natively supports glTexBuffer
 }
 
 void init_gl_state() {

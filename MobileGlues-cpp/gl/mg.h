@@ -102,8 +102,7 @@ struct display_list_s {
 
     struct hardware_s {
         unsigned int es_version;      // ES version in hundreds (e.g. 320 = 3.2)
-        // ES 3.2 always enables everything it natively supports
-        // No need for per-extension capability flags since we only target 3.2
+        bool emulate_texture_buffer;  // Always false on ES 3.2 (native support)
     };
     typedef struct hardware_s* hardware_t;
     extern hardware_t hardware;
