@@ -90,7 +90,6 @@ extern "C"
     GLAPI void glTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer);
     GLAPI void glTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset,
                                     GLsizeiptr size);
-    GLAPI void glTextureStorage1D(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width);
     GLAPI void glTextureStorage2D(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
     GLAPI void glTextureStorage3D(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height,
                                   GLsizei depth);
@@ -98,8 +97,6 @@ extern "C"
                                              GLsizei height, GLboolean fixedsamplelocations);
     GLAPI void glTextureStorage3DMultisample(GLuint texture, GLsizei samples, GLenum internalformat, GLsizei width,
                                              GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
-    GLAPI void glTextureSubImage1D(GLuint texture, GLint level, GLint xoffset, GLsizei width, GLenum format,
-                                   GLenum type, const void* pixels);
     GLAPI void glTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
                                    GLsizei height, GLenum format, GLenum type, const void* pixels);
     GLAPI void glTextureSubImage3D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset,

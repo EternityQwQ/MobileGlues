@@ -14,11 +14,6 @@
 //   glDrawElements, glDrawElementsInstanced, glDrawElementsBaseVertex
 //   glDrawArrays, glDrawArraysInstanced, glDrawRangeElements
 //   glDrawArraysIndirect, glDrawElementsIndirect, glClear
-//
-// CPU-simulated draw calls:
-//   glMultiDrawArrays → loop over glDrawArrays
-//   glMultiDrawElements → redirected in multidraw.cpp
-//   glMultiDrawElementsBaseVertex → redirected in multidraw.cpp
 // ============================================================================
 
 #ifndef MOBILEGLUES_DRAWING_H
@@ -64,17 +59,6 @@ extern "C"
     GLAPI GLAPIENTRY void glDrawArraysIndirect(GLenum mode, const void* indirect);
     GLAPI GLAPIENTRY void glDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect);
     GLAPI GLAPIENTRY void glClear(GLbitfield mask);
-
-    // ============================================================================
-    // CPU-simulated draw calls (redirected to multidraw.cpp)
-    // ============================================================================
-
-    GLAPI GLAPIENTRY void glMultiDrawArrays(GLenum mode, const GLint* first, const GLsizei* count, GLsizei drawcount);
-    GLAPI GLAPIENTRY void glMultiDrawElements(GLenum mode, const GLsizei* count, GLenum type,
-                                              const void* const* indices, GLsizei primcount);
-    GLAPI GLAPIENTRY void glMultiDrawElementsBaseVertex(GLenum mode, const GLsizei* count, GLenum type,
-                                                        const void* const* indices, GLsizei drawcount,
-                                                        const GLint* basevertex);
 
     // ============================================================================
     // Other functions (keep existing logic)

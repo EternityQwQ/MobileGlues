@@ -986,13 +986,6 @@ void glTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, 
     CHECK_GL_ERROR;                                                                                                    \
     restoreTemporaryTextureBinding(texture);
 
-void glTextureStorage1D(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width) {
-    TEXTURE_OP_FUNC_BEGIN(glTextureStorage1D)
-    glTexStorage1D(target, levels, internalformat, width);
-    TEXTURE_OP_FUNC_END
-    LOG_D("[DSA] Set 1D storage for texture %u with internal format 0x%X and width %d", texture, internalformat, width);
-}
-
 void glTextureStorage2D(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height) {
     TEXTURE_OP_FUNC_BEGIN(glTextureStorage2D)
     glTexStorage2D(target, levels, internalformat, width, height);
@@ -1026,15 +1019,6 @@ void glTextureStorage3DMultisample(GLuint texture, GLsizei samples, GLenum inter
     TEXTURE_OP_FUNC_END
     LOG_D("[DSA] Set 3D multisample storage for texture %u with internal format 0x%X and size (%d, %d, %d)", texture,
           internalformat, width, height, depth);
-}
-
-void glTextureSubImage1D(GLuint texture, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type,
-                         const void* pixels) {
-    TEXTURE_OP_FUNC_BEGIN(glTextureSubImage1D)
-    glTexSubImage1D(target, level, xoffset, width, format, type, pixels);
-    TEXTURE_OP_FUNC_END
-    LOG_D("[DSA] Updated 1D sub-image of texture %u at level %d with size %d at offset %d", texture, level, width,
-          xoffset);
 }
 
 void glTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height,

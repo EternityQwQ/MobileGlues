@@ -22,12 +22,6 @@
 //   - glGetTexLevelParameteriv, glGetTexLevelParameterfv
 //   - glTexBuffer, glTexBufferRange
 //   - glBindTexture (with 1D→2D mapping for legacy targets)
-//
-// CPU simulation (ES 3.2 does NOT support natively):
-//   - glTexImage1D → convert to 2D texture (height=1)
-//   - glTexSubImage1D → convert to 2D texture operation
-//   - glTexStorage1D → convert to 2D texture (height=1)
-//   - glCopyTexImage1D → stub (record metadata only)
 // ============================================================================
 
 #include "texture.h"
@@ -1170,99 +1164,6 @@ void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* p
     LOG_D("es.glGetTexLevelParameteriv,target: %s, level: %d, pname: %s", glEnumToString(target), level,
           glEnumToString(pname))
     GLES.glGetTexLevelParameteriv(target, level, pname, params);
-    CHECK_GL_ERROR
-}
-
-// ============================================================================
-// CPU-simulated 1D texture functions (ES 3.2 does NOT support 1D textures)
-// ============================================================================
-
-// --- glTexImage1D (CPU simulation: convert to 2D texture with height=1) ---
-void glTexImage1D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLint border, GLenum format,
-                  GLenum type, const GLvoid* pixels) {
-    LOG()
-    LOG_D("glTexImage1D (CPU simulation: 1D→2D), target: %d, level: %d, internalFormat: %d, width: %d, "
-          "border: %d, format: %d, type: %d",
-          target, level, internalFormat, width, border, format, type)
-    internal_convert(reinterpret_cast<GLenum*>(&internalFormat), &type, &format);
-
-    GLenum rtarget = map_tex_target(target);
-    if (rtarget == GL_PROXY_TEXTURE_1D) {
-        int max1 = 4096;
-        GLES.glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max1);
-        set_gl_state_proxy_width(((width << level) > max1) ? 0 : width);
-        set_gl_state_proxy_intformat(internalFormat);
-        return;
-    }
-
-    GET_TEXTURE_OBJECT(target);
-    tex->target = ConvertGLEnumToTextureTarget(target);
-    tex->depth = 1;
-    tex->format = format;
-    tex->internal_format = internalFormat;
-    tex->width = width;
-    tex->height = 1;
-    tex->swizzle_param[0] = GL_RED;
-    tex->swizzle_param[1] = GL_GREEN;
-    tex->swizzle_param[2] = GL_BLUE;
-    tex->swizzle_param[3] = GL_ALPHA;
-
-    CHECK_GL_ERROR
-}
-
-// --- glTexSubImage1D (CPU simulation: convert to 2D texture operation) ---
-void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type,
-                     const void* pixels) {
-    LOG()
-    LOG_D("glTexSubImage1D (CPU simulation: 1D→2D), target: %s, level: %d, xoffset: %d, "
-          "width: %d, format: %s, type: %s",
-          glEnumToString(target), level, xoffset, width, glEnumToString(format), glEnumToString(type))
-
-    // Simulate 1D sub-image by calling 2D with yoffset=0, height=1
-    GLES.glTexSubImage2D(target, level, xoffset, 0, width, 1, format, type, pixels);
-    CHECK_GL_ERROR
-}
-
-// --- glTexStorage1D (CPU simulation: convert to 2D texture with height=1) ---
-void glTexStorage1D(GLenum target, GLsizei levels, GLenum internalFormat, GLsizei width) {
-    LOG()
-    LOG_D("glTexStorage1D (CPU simulation: 1D→2D), target: %d, levels: %d, internalFormat: %d, width: %d",
-          target, levels, internalFormat, width)
-    internal_convert(&internalFormat, nullptr, nullptr);
-
-    GET_TEXTURE_OBJECT(target);
-    tex->target = ConvertGLEnumToTextureTarget(target);
-    tex->internal_format = internalFormat;
-    tex->width = width;
-    tex->height = 1;
-    tex->depth = 1;
-    tex->swizzle_param[0] = GL_RED;
-    tex->swizzle_param[1] = GL_GREEN;
-    tex->swizzle_param[2] = GL_BLUE;
-    tex->swizzle_param[3] = GL_ALPHA;
-
-    CHECK_GL_ERROR
-}
-
-// --- glCopyTexImage1D (CPU simulation: stub, record metadata only) ---
-void glCopyTexImage1D(GLenum target, GLint level, GLenum internalFormat, GLint x, GLint y, GLsizei width,
-                      GLint border) {
-    LOG()
-    LOG_D("glCopyTexImage1D (CPU simulation: stub), target: %d, level: %d, internalFormat: %d, x: %d, "
-          "y: %d, width: %d, border: %d",
-          target, level, internalFormat, x, y, width, border)
-
-    GET_TEXTURE_OBJECT(target);
-    tex->target = ConvertGLEnumToTextureTarget(target);
-    tex->internal_format = internalFormat;
-    tex->width = width;
-    tex->height = 1;
-    tex->depth = 1;
-    tex->swizzle_param[0] = GL_RED;
-    tex->swizzle_param[1] = GL_GREEN;
-    tex->swizzle_param[2] = GL_BLUE;
-    tex->swizzle_param[3] = GL_ALPHA;
-
     CHECK_GL_ERROR
 }
 

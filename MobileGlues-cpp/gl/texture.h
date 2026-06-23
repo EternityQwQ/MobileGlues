@@ -22,12 +22,6 @@
 //   glGetTexLevelParameteriv, glGetTexLevelParameterfv
 //   glTexBuffer, glTexBufferRange
 //   glBindTexture, glDeleteTextures, glActiveTexture
-//
-// CPU simulation (ES 3.2 does NOT support natively):
-//   glTexImage1D → convert to 2D texture (height=1)
-//   glTexSubImage1D → convert to 2D texture operation
-//   glTexStorage1D → convert to 2D texture (height=1)
-//   glCopyTexImage1D → stub (record metadata only)
 // ============================================================================
 
 #ifndef MOBILEGLUES_TEXTURE_H
@@ -127,18 +121,6 @@ extern "C"
     GLAPI GLAPIENTRY void glTexBuffer(GLenum target, GLenum internalformat, GLuint buffer);
     GLAPI GLAPIENTRY void glTexBufferRange(GLenum target, GLenum internalformat, GLuint buffer, GLintptr offset,
                                            GLsizeiptr size);
-
-    // ============================================================================
-    // CPU-simulated 1D texture functions (ES 3.2 does NOT support 1D textures)
-    // ============================================================================
-
-    GLAPI GLAPIENTRY void glTexImage1D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLint border,
-                                       GLenum format, GLenum type, const GLvoid* pixels);
-    GLAPI GLAPIENTRY void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format,
-                                          GLenum type, const void* pixels);
-    GLAPI GLAPIENTRY void glTexStorage1D(GLenum target, GLsizei levels, GLenum internalFormat, GLsizei width);
-    GLAPI GLAPIENTRY void glCopyTexImage1D(GLenum target, GLint level, GLenum internalFormat, GLint x, GLint y,
-                                           GLsizei width, GLint border);
 
     // ============================================================================
     // Renderbuffer functions (native)

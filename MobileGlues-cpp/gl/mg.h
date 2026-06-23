@@ -39,34 +39,6 @@ extern "C"
 //  - OpenGL ES 3.2 does NOT support: CPU emulation / stub
 // ============================================================================
 
-// State tracking for immediate mode emulation (only needed for deprecated features)
-struct immediate_state_s {
-    bool in_begin;
-    GLenum begin_mode;
-    GLuint vertex_count;
-    float vertices[4096 * 4];  // position
-    float colors[4096 * 4];    // color
-    float texcoords[4096 * 4]; // tex coords
-    float normals[4096 * 3];   // normals
-};
-
-// Matrix stack for legacy transformation emulation
-#define MAX_MATRIX_STACK 32
-
-struct matrix_stack_s {
-    int depth;
-    int max_depth;
-    float* stack;  // 16 floats per matrix
-};
-
-struct matrix_mode_state_s {
-    GLenum current_mode;  // GL_MODELVIEW, GL_PROJECTION, GL_TEXTURE
-    matrix_stack_s modelview;
-    matrix_stack_s projection;
-    matrix_stack_s texture;
-    float current_matrix[16];
-};
-
 // Display list emulation state
 struct display_list_s {
     bool is_compiled;
@@ -115,12 +87,6 @@ struct display_list_s {
         GLuint current_program;
         GLuint current_tex_unit;
         GLuint current_draw_fbo;
-
-        // Immediate mode emulation (GL 1.x begin/end) - not supported by ES 3.2
-        immediate_state_s immediate;
-
-        // Matrix stack emulation (GL 1.x) - not supported by ES 3.2
-        matrix_mode_state_s matrix;
     };
     typedef struct gl_state_s* gl_state_t;
     extern gl_state_t gl_state;
@@ -131,11 +97,6 @@ struct display_list_s {
     void write_log(const char* format, ...);
     void write_log_n(const char* format, ...);
     void clear_log();
-
-    // Initialize emulation state for unsupported features
-    void init_emulation_state();
-    // Flush immediate mode vertex buffer and draw
-    void flush_immediate();
 
 #ifdef __cplusplus
 }

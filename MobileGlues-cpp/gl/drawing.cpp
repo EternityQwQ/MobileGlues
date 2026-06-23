@@ -15,14 +15,6 @@
 //   - glDrawArrays, glDrawArraysInstanced, glDrawRangeElements
 //   - glDrawArraysIndirect, glDrawElementsIndirect
 //   - glClear
-//
-// CPU simulation (ES 3.2 does NOT support):
-//   - glMultiDrawArrays → loop over glDrawArrays
-//   - glMultiDrawElements → redirected in multidraw.cpp
-//   - glMultiDrawElementsBaseVertex → redirected in multidraw.cpp
-//
-// Other functions (not draw calls, keep existing logic):
-//   - glBindImageTexture, glUniform1i, glDispatchCompute, glMemoryBarrier
 // ============================================================================
 
 #include "drawing.h"
@@ -208,31 +200,6 @@ void glDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect) {
     GLES.glDrawElementsIndirect(mode, type, indirect);
     CHECK_GL_ERROR
 }
-
-// ============================================================================
-// CPU-simulated draw calls (ES 3.2 does NOT support natively)
-// ============================================================================
-
-// --- glMultiDrawArrays (CPU simulation: loop over glDrawArrays) ---
-void glMultiDrawArrays(GLenum mode, const GLint* first, const GLsizei* count, GLsizei drawcount) {
-    LOG()
-    LOG_D("glMultiDrawArrays, mode: %d, drawcount: %d (CPU simulation)", mode, drawcount)
-    prepareForDraw();
-
-    for (GLsizei i = 0; i < drawcount; ++i) {
-        if (count[i] > 0) {
-            GLES.glDrawArrays(mode, first[i], count[i]);
-        }
-    }
-
-    CHECK_GL_ERROR
-}
-
-// --- glMultiDrawElements (redirected in multidraw.cpp) ---
-// Defined in multidraw.cpp – keep as-is.
-
-// --- glMultiDrawElementsBaseVertex (redirected in multidraw.cpp) ---
-// Defined in multidraw.cpp – keep as-is.
 
 // ============================================================================
 // Other functions (keep existing logic)
