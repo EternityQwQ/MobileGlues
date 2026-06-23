@@ -37,23 +37,23 @@ extern "C"
         GLint baseVertex;
     };
 
-    GLAPI GLAPIENTRY void glMultiDrawElementsBaseVertex(GLenum mode, GLsizei* counts, GLenum type,
-                                                        const void* const* indices, GLsizei primcount,
+    GLAPI GLAPIENTRY void glMultiDrawElementsBaseVertex(GLenum mode, const GLsizei* counts, GLenum type,
+                                                        const void* const* indices, GLsizei drawcount,
                                                         const GLint* basevertex);
-    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_indirect(GLenum mode, GLsizei* counts, GLenum type,
-                                                                    const void* const* indices, GLsizei primcount,
+    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_indirect(GLenum mode, const GLsizei* counts, GLenum type,
+                                                                    const void* const* indices, GLsizei drawcount,
                                                                     const GLint* basevertex);
-    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_multiindirect(GLenum mode, GLsizei* counts, GLenum type,
-                                                                         const void* const* indices, GLsizei primcount,
+    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_multiindirect(GLenum mode, const GLsizei* counts, GLenum type,
+                                                                         const void* const* indices, GLsizei drawcount,
                                                                          const GLint* basevertex);
-    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_basevertex(GLenum mode, GLsizei* counts, GLenum type,
-                                                                      const void* const* indices, GLsizei primcount,
+    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_basevertex(GLenum mode, const GLsizei* counts, GLenum type,
+                                                                      const void* const* indices, GLsizei drawcount,
                                                                       const GLint* basevertex);
-    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, GLsizei* counts, GLenum type,
-                                                                        const void* const* indices, GLsizei primcount,
+    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, const GLsizei* counts, GLenum type,
+                                                                        const void* const* indices, GLsizei drawcount,
                                                                         const GLint* basevertex);
-    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_compute(GLenum mode, GLsizei* counts, GLenum type,
-                                                                   const void* const* indices, GLsizei primcount,
+    GLAPI GLAPIENTRY void mg_glMultiDrawElementsBaseVertex_compute(GLenum mode, const GLsizei* counts, GLenum type,
+                                                                   const void* const* indices, GLsizei drawcount,
                                                                    const GLint* basevertex);
 
     GLAPI GLAPIENTRY void glMultiDrawElements(GLenum mode, const GLsizei* count, GLenum type,
