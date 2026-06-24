@@ -175,6 +175,12 @@ void update_attachment(GLenum target, GLenum attachment, GLenum textarget, GLuin
 
 void glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) {
     update_attachment(target, attachment, textarget, texture, level);
+    // Invalidate slot mapping cache for this FBO
+    GLuint fbo = (target == GL_DRAW_FRAMEBUFFER || target == GL_FRAMEBUFFER) ? current_draw_fbo : current_read_fbo;
+    if (fbo != 0 && attachment >= GL_COLOR_ATTACHMENT0 && attachment < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {
+        framebuffers[fbo].last_physical_slot_mapping[attachment - GL_COLOR_ATTACHMENT0] = 0;
+        framebuffers[fbo].last_read_buffer_src = 0;
+    }
     GLES.glFramebufferTexture2D(target, attachment, textarget, texture, level);
 }
 
@@ -343,9 +349,13 @@ void glDrawBuffers(GLsizei n, const GLenum* bufs) {
             GLenum physical_attachment = GL_COLOR_ATTACHMENT0 + i;
             new_bufs[i] = physical_attachment;
             int index = logical_attachment - GL_COLOR_ATTACHMENT0;
-            attachment_t& attach = fbo.color_attachments[index];
-            GLES.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, physical_attachment, attach.textarget, attach.texture,
-                                        attach.level);
+            // Skip redundant rebind if the attachment is already in the correct physical slot
+            if (fbo.last_physical_slot_mapping[index] != physical_attachment) {
+                attachment_t& attach = fbo.color_attachments[index];
+                GLES.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, physical_attachment, attach.textarget, attach.texture,
+                                            attach.level);
+                fbo.last_physical_slot_mapping[index] = physical_attachment;
+            }
         } else {
             new_bufs[i] = bufs[i];
         }
@@ -361,9 +371,13 @@ void glReadBuffer(GLenum src) {
     if (current_read_fbo != 0 && src >= GL_COLOR_ATTACHMENT0 && src < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {
         framebuffer_t& fbo = framebuffers[current_read_fbo];
         int index = src - GL_COLOR_ATTACHMENT0;
-        attachment_t& attach = fbo.color_attachments[index];
-        GLES.glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, attach.textarget, attach.texture,
-                                    attach.level);
+        // Skip redundant rebind if the same attachment is already mapped
+        if (fbo.last_read_buffer_src != src) {
+            attachment_t& attach = fbo.color_attachments[index];
+            GLES.glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, attach.textarget, attach.texture,
+                                        attach.level);
+            fbo.last_read_buffer_src = src;
+        }
         GLES.glReadBuffer(GL_COLOR_ATTACHMENT0);
     } else {
         GLES.glReadBuffer(src);

@@ -69,6 +69,10 @@ namespace FSR1_Context {
     bool g_resolutionChanged = false;
     GLsizei g_pendingWidth = 0;
     GLsizei g_pendingHeight = 0;
+
+    GLint g_inputTexLoc = -1;
+    GLint g_const0Loc = -1;
+    GLint g_viewportSizeLoc = -1;
 } // namespace FSR1_Context
 
 void CalculateTargetResolution(FSR1_Quality_Preset preset, int renderWidth, int renderHeight, int* targetWidth,
@@ -207,12 +211,12 @@ void InitFSRResources() {
 
     FSR1_Context::g_fsrProgram = CompileFSRShader();
 
-    GLint inputTexLoc = glGetUniformLocation(FSR1_Context::g_fsrProgram, "uInputTex");
-    GLint const0Loc = glGetUniformLocation(FSR1_Context::g_fsrProgram, "uConst0");
-    GLint viewportSizeLoc = glGetUniformLocation(FSR1_Context::g_fsrProgram, "uViewportSize");
+    FSR1_Context::g_inputTexLoc = glGetUniformLocation(FSR1_Context::g_fsrProgram, "uInputTex");
+    FSR1_Context::g_const0Loc = glGetUniformLocation(FSR1_Context::g_fsrProgram, "uConst0");
+    FSR1_Context::g_viewportSizeLoc = glGetUniformLocation(FSR1_Context::g_fsrProgram, "uViewportSize");
 
     glUseProgram(FSR1_Context::g_fsrProgram);
-    glUniform1i(inputTexLoc, 0);
+    glUniform1i(FSR1_Context::g_inputTexLoc, 0);
     glUseProgram(0);
 
     InitFullscreenQuad();
@@ -323,12 +327,12 @@ void ApplyFSR() {
                         float(FSR1_Context::g_renderHeight) / FSR1_Context::g_targetHeight,
                         1.0f / FSR1_Context::g_targetWidth, 1.0f / FSR1_Context::g_targetHeight};
 
-    GLES.glUniform1i(glGetUniformLocation(FSR1_Context::g_fsrProgram, "uInputTex"), 0);
-    GLES.glUniform4fv(glGetUniformLocation(FSR1_Context::g_fsrProgram, "uConst0"), 1,
+    GLES.glUniform1i(FSR1_Context::g_inputTexLoc, 0);
+    GLES.glUniform4fv(FSR1_Context::g_const0Loc, 1,
                       reinterpret_cast<const GLfloat*>(&const0));
 
     glm::vec2 viewportSize = {(float)FSR1_Context::g_renderWidth, (float)FSR1_Context::g_renderHeight};
-    GLES.glUniform2fv(glGetUniformLocation(FSR1_Context::g_fsrProgram, "uViewportSize"), 1,
+    GLES.glUniform2fv(FSR1_Context::g_viewportSizeLoc, 1,
                       reinterpret_cast<const GLfloat*>(&viewportSize));
 
     GLES.glBindVertexArray(FSR1_Context::g_quadVAO);

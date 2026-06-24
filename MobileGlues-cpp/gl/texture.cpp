@@ -30,7 +30,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#ifdef __ANDROID__
 #include <android/log.h>
+#endif
 #include <malloc.h>
 
 #include "../gles/gles.h"
@@ -128,21 +130,20 @@ static const TexTargetEntry kGLEnumToTextureTarget[] = {
     {GL_PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY, TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY},
 };
 
-static constexpr size_t kTexTargetEntryCount = sizeof(kGLEnumToTextureTarget) / sizeof(kGLEnumToTextureTarget[0]);
+static ankerl::unordered_dense::map<GLenum, TextureTarget> g_texTargetLookup;
+
+static void initTexTargetLookup() {
+    if (!g_texTargetLookup.empty()) return;
+    for (const auto& entry : kGLEnumToTextureTarget) {
+        g_texTargetLookup[entry.key] = entry.value;
+    }
+}
 
 TextureTarget ConvertGLEnumToTextureTarget(GLenum target) {
-    // Binary search on sorted array
-    size_t lo = 0, hi = kTexTargetEntryCount;
-    while (lo < hi) {
-        size_t mid = lo + (hi - lo) / 2;
-        if (kGLEnumToTextureTarget[mid].key < target) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
-        }
-    }
-    if (lo < kTexTargetEntryCount && kGLEnumToTextureTarget[lo].key == target) [[likely]] {
-        return kGLEnumToTextureTarget[lo].value;
+    initTexTargetLookup();
+    auto it = g_texTargetLookup.find(target);
+    if (it != g_texTargetLookup.end()) [[likely]] {
+        return it->second;
     }
     return TextureTarget::UNKNWON;
 }

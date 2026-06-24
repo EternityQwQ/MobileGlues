@@ -49,6 +49,11 @@ namespace FSR1_Context {
     extern bool g_resolutionChanged;
     extern GLsizei g_pendingWidth;
     extern GLsizei g_pendingHeight;
+
+    // Cached uniform locations (queried once, reused every frame)
+    extern GLint g_inputTexLoc;
+    extern GLint g_const0Loc;
+    extern GLint g_viewportSizeLoc;
 } // namespace FSR1_Context
 
 extern bool fsrInitialized;

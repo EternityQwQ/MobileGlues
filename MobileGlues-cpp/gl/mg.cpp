@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: LGPL-2.1-only
 // End of Source File Header
 
+#include <cstdarg>
 #include <unistd.h>
 #include "mg.h"
 

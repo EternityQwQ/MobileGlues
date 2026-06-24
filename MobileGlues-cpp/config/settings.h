@@ -13,7 +13,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
-#include <__stddef_size_t.h>
+#include <cstddef>
 
 #define DEFAULT_GL_VERSION 40
 

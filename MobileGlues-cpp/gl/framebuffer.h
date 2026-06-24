@@ -22,6 +22,9 @@ struct framebuffer_t {
     attachment_t* color_attachments = nullptr;
     attachment_t depth_attachment = {0};
     attachment_t stencil_attachment = {0};
+    // Cache for attachment→physical slot mapping to avoid redundant glFramebufferTexture2D
+    GLenum last_physical_slot_mapping[16] = {};
+    GLenum last_read_buffer_src = 0; // Cache last read buffer source to avoid redundant rebinds
 };
 
 #ifdef __cplusplus

@@ -980,11 +980,11 @@ void glTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, 
     LOG()                                                                                                              \
     LOG_D(#func_name ", texture: %u", texture);                                                                        \
     GLenum target = GetTexTarget(texture);                                                                             \
-    temporarilyBindTexture(texture);
+    temporarilyBindTexture(texture, target);
 
 #define TEXTURE_OP_FUNC_END                                                                                            \
     CHECK_GL_ERROR;                                                                                                    \
-    restoreTemporaryTextureBinding(texture);
+    restoreTemporaryTextureBinding(texture, target);
 
 void glTextureStorage2D(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height) {
     TEXTURE_OP_FUNC_BEGIN(glTextureStorage2D)
