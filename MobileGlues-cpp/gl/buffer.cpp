@@ -148,22 +148,43 @@ size_t get_buffer_data_size(GLuint buffer) {
 // Buffer Binding Helpers
 // ============================================================================
 
-static inline int binding_target_to_index(GLenum target) {
-    switch (target) {
-    case GL_ARRAY_BUFFER:             return BI_ARRAY_BUFFER;
-    case GL_ATOMIC_COUNTER_BUFFER:    return BI_ATOMIC_COUNTER;
-    case GL_COPY_READ_BUFFER:         return BI_COPY_READ;
-    case GL_COPY_WRITE_BUFFER:        return BI_COPY_WRITE;
-    case GL_DRAW_INDIRECT_BUFFER:     return BI_DRAW_INDIRECT;
-    case GL_DISPATCH_INDIRECT_BUFFER: return BI_DISPATCH_INDIRECT;
-    case GL_ELEMENT_ARRAY_BUFFER:     return BI_ELEMENT_ARRAY;
-    case GL_PIXEL_PACK_BUFFER:        return BI_PIXEL_PACK;
-    case GL_PIXEL_UNPACK_BUFFER:      return BI_PIXEL_UNPACK;
-    case GL_SHADER_STORAGE_BUFFER:    return BI_SHADER_STORAGE;
-    case GL_TRANSFORM_FEEDBACK_BUFFER:return BI_TRANSFORM_FEEDBACK;
-    case GL_UNIFORM_BUFFER:           return BI_UNIFORM_BUFFER;
-    default:                          return -1;
+// Sorted key-value pair for target → index lookup
+struct BufTargetEntry {
+    GLenum key;
+    int value;
+};
+
+static const BufTargetEntry kBufTargetToIndex[] = {
+    {GL_ARRAY_BUFFER,             BI_ARRAY_BUFFER},
+    {GL_ELEMENT_ARRAY_BUFFER,     BI_ELEMENT_ARRAY},
+    {GL_PIXEL_PACK_BUFFER,        BI_PIXEL_PACK},
+    {GL_PIXEL_UNPACK_BUFFER,      BI_PIXEL_UNPACK},
+    {GL_UNIFORM_BUFFER,           BI_UNIFORM_BUFFER},
+    {GL_TRANSFORM_FEEDBACK_BUFFER,BI_TRANSFORM_FEEDBACK},
+    {GL_COPY_READ_BUFFER,         BI_COPY_READ},
+    {GL_COPY_WRITE_BUFFER,        BI_COPY_WRITE},
+    {GL_DRAW_INDIRECT_BUFFER,     BI_DRAW_INDIRECT},
+    {GL_SHADER_STORAGE_BUFFER,    BI_SHADER_STORAGE},
+    {GL_DISPATCH_INDIRECT_BUFFER, BI_DISPATCH_INDIRECT},
+    {GL_ATOMIC_COUNTER_BUFFER,    BI_ATOMIC_COUNTER},
+};
+static constexpr size_t kBufTargetEntryCount = sizeof(kBufTargetToIndex) / sizeof(kBufTargetToIndex[0]);
+
+// Binary search helper
+static inline int bsearch_target_index(GLenum key) {
+    size_t lo = 0, hi = kBufTargetEntryCount;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (kBufTargetToIndex[mid].key < key) lo = mid + 1;
+        else hi = mid;
     }
+    if (lo < kBufTargetEntryCount && kBufTargetToIndex[lo].key == key) [[likely]]
+        return kBufTargetToIndex[lo].value;
+    return -1;
+}
+
+static inline int binding_target_to_index(GLenum target) {
+    return bsearch_target_index(target);
 }
 
 void set_bound_buffer_by_target(GLenum target, GLuint buffer) {
@@ -171,47 +192,67 @@ void set_bound_buffer_by_target(GLenum target, GLuint buffer) {
     if (idx >= 0) g_bound_buffers_arr[idx] = buffer;
 }
 
+// Sorted key-value pair for binding query → target index
+static const BufTargetEntry kBufBindingQueryToIndex[] = {
+    {GL_ARRAY_BUFFER_BINDING,              BI_ARRAY_BUFFER},
+    {GL_ELEMENT_ARRAY_BUFFER_BINDING,      BI_ELEMENT_ARRAY},
+    {GL_PIXEL_PACK_BUFFER_BINDING,         BI_PIXEL_PACK},
+    {GL_PIXEL_UNPACK_BUFFER_BINDING,       BI_PIXEL_UNPACK},
+    {GL_UNIFORM_BUFFER_BINDING,            BI_UNIFORM_BUFFER},
+    {GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, BI_TRANSFORM_FEEDBACK},
+    {GL_COPY_READ_BUFFER_BINDING,          BI_COPY_READ},
+    {GL_COPY_WRITE_BUFFER_BINDING,         BI_COPY_WRITE},
+    {GL_DRAW_INDIRECT_BUFFER_BINDING,      BI_DRAW_INDIRECT},
+    {GL_SHADER_STORAGE_BUFFER_BINDING,     BI_SHADER_STORAGE},
+    {GL_DISPATCH_INDIRECT_BUFFER_BINDING,  BI_DISPATCH_INDIRECT},
+    {GL_ATOMIC_COUNTER_BUFFER_BINDING,     BI_ATOMIC_COUNTER},
+};
+static constexpr size_t kBufBindingQueryCount = sizeof(kBufBindingQueryToIndex) / sizeof(kBufBindingQueryToIndex[0]);
+
 GLuint find_bound_buffer(GLenum key) {
-    GLenum target = 0;
-    switch (key) {
-    case GL_ARRAY_BUFFER_BINDING:              target = GL_ARRAY_BUFFER;              break;
-    case GL_ATOMIC_COUNTER_BUFFER_BINDING:     target = GL_ATOMIC_COUNTER_BUFFER;     break;
-    case GL_COPY_READ_BUFFER_BINDING:          target = GL_COPY_READ_BUFFER;          break;
-    case GL_COPY_WRITE_BUFFER_BINDING:         target = GL_COPY_WRITE_BUFFER;         break;
-    case GL_DRAW_INDIRECT_BUFFER_BINDING:      target = GL_DRAW_INDIRECT_BUFFER;      break;
-    case GL_DISPATCH_INDIRECT_BUFFER_BINDING:  target = GL_DISPATCH_INDIRECT_BUFFER;  break;
-    case GL_ELEMENT_ARRAY_BUFFER_BINDING:      target = GL_ELEMENT_ARRAY_BUFFER;      break;
-    case GL_PIXEL_PACK_BUFFER_BINDING:         target = GL_PIXEL_PACK_BUFFER;         break;
-    case GL_PIXEL_UNPACK_BUFFER_BINDING:       target = GL_PIXEL_UNPACK_BUFFER;       break;
-    case GL_SHADER_STORAGE_BUFFER_BINDING:     target = GL_SHADER_STORAGE_BUFFER;     break;
-    case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING: target = GL_TRANSFORM_FEEDBACK_BUFFER; break;
-    case GL_UNIFORM_BUFFER_BINDING:            target = GL_UNIFORM_BUFFER;            break;
-    default:                                   target = 0;                            break;
-    }
-    if (target == GL_ELEMENT_ARRAY_BUFFER) {
+    // Special case: ELEMENT_ARRAY_BUFFER uses VAO tracking
+    if (key == GL_ELEMENT_ARRAY_BUFFER_BINDING) {
         return get_ibo_by_vao(find_bound_array());
     }
-    int idx = binding_target_to_index(target);
-    if (idx >= 0) return g_bound_buffers_arr[idx];
+    // Binary search for direct query → index mapping
+    size_t lo = 0, hi = kBufBindingQueryCount;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (kBufBindingQueryToIndex[mid].key < key) lo = mid + 1;
+        else hi = mid;
+    }
+    if (lo < kBufBindingQueryCount && kBufBindingQueryToIndex[lo].key == key) [[likely]]
+        return g_bound_buffers_arr[kBufBindingQueryToIndex[lo].value];
     return 0;
 }
 
+// Sorted key-value pair for target → binding query
+static const BufTargetEntry kBufTargetToBindingQuery[] = {
+    {GL_ARRAY_BUFFER,              GL_ARRAY_BUFFER_BINDING},
+    {GL_ELEMENT_ARRAY_BUFFER,      GL_ELEMENT_ARRAY_BUFFER_BINDING},
+    {GL_PIXEL_PACK_BUFFER,         GL_PIXEL_PACK_BUFFER_BINDING},
+    {GL_PIXEL_UNPACK_BUFFER,       GL_PIXEL_UNPACK_BUFFER_BINDING},
+    {GL_UNIFORM_BUFFER,            GL_UNIFORM_BUFFER_BINDING},
+    {GL_TRANSFORM_FEEDBACK_BUFFER, GL_TRANSFORM_FEEDBACK_BUFFER_BINDING},
+    {GL_COPY_READ_BUFFER,          GL_COPY_READ_BUFFER_BINDING},
+    {GL_COPY_WRITE_BUFFER,         GL_COPY_WRITE_BUFFER_BINDING},
+    {GL_DRAW_INDIRECT_BUFFER,      GL_DRAW_INDIRECT_BUFFER_BINDING},
+    {GL_SHADER_STORAGE_BUFFER,     GL_SHADER_STORAGE_BUFFER_BINDING},
+    {GL_DISPATCH_INDIRECT_BUFFER,  GL_DISPATCH_INDIRECT_BUFFER_BINDING},
+    {GL_ATOMIC_COUNTER_BUFFER,     GL_ATOMIC_COUNTER_BUFFER_BINDING},
+};
+static constexpr size_t kBufTargetQueryCount = sizeof(kBufTargetToBindingQuery) / sizeof(kBufTargetToBindingQuery[0]);
+
 static GLenum get_binding_query(GLenum target) {
-    switch (target) {
-    case GL_ARRAY_BUFFER:              return GL_ARRAY_BUFFER_BINDING;
-    case GL_ELEMENT_ARRAY_BUFFER:      return GL_ELEMENT_ARRAY_BUFFER_BINDING;
-    case GL_PIXEL_PACK_BUFFER:         return GL_PIXEL_PACK_BUFFER_BINDING;
-    case GL_PIXEL_UNPACK_BUFFER:       return GL_PIXEL_UNPACK_BUFFER_BINDING;
-    case GL_COPY_WRITE_BUFFER:         return GL_COPY_WRITE_BUFFER_BINDING;
-    case GL_COPY_READ_BUFFER:          return GL_COPY_READ_BUFFER_BINDING;
-    case GL_UNIFORM_BUFFER:            return GL_UNIFORM_BUFFER_BINDING;
-    case GL_SHADER_STORAGE_BUFFER:     return GL_SHADER_STORAGE_BUFFER_BINDING;
-    case GL_TRANSFORM_FEEDBACK_BUFFER: return GL_TRANSFORM_FEEDBACK_BUFFER_BINDING;
-    case GL_ATOMIC_COUNTER_BUFFER:     return GL_ATOMIC_COUNTER_BUFFER_BINDING;
-    case GL_DRAW_INDIRECT_BUFFER:      return GL_DRAW_INDIRECT_BUFFER_BINDING;
-    case GL_DISPATCH_INDIRECT_BUFFER:  return GL_DISPATCH_INDIRECT_BUFFER_BINDING;
-    default:                           return 0;
+    size_t lo = 0, hi = kBufTargetQueryCount;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (kBufTargetToBindingQuery[mid].key < target) lo = mid + 1;
+        else hi = mid;
     }
+    if (lo < kBufTargetQueryCount && kBufTargetToBindingQuery[lo].key == target) [[likely]]
+        return (GLenum)kBufTargetToBindingQuery[lo].value;
+    return 0;
 }
 
 // ============================================================================
@@ -566,70 +607,78 @@ void glBufferStorage(GLenum target, GLsizeiptr size, const void* data, GLbitfiel
 // Texture Buffer (ES 3.2 native, with CPU emulation fallback)
 // ============================================================================
 
+// Sorted: internal format → pixel size in bytes
+struct InternalFormatSizeEntry {
+    GLenum key;
+    size_t value;
+};
+
+static const InternalFormatSizeEntry kInternalFormatSizes[] = {
+    {GL_RGB8,                3},
+    {GL_RGB16,               6},
+    {GL_RGBA8,               4},
+    {GL_RGBA16,              8},
+    {GL_DEPTH_COMPONENT16,   2},
+    {GL_DEPTH_COMPONENT24,   3},
+    {GL_DEPTH_COMPONENT32,   4},
+    {GL_R8,                  1},
+    {GL_R16,                 2},
+    {GL_RG8,                 2},
+    {GL_RG16,                4},
+    {GL_R16F,                2},
+    {GL_R32F,                4},
+    {GL_RG16F,               4},
+    {GL_RG32F,               8},
+    {GL_R8I,                 1},
+    {GL_R8UI,                1},
+    {GL_R16I,                2},
+    {GL_R16UI,               2},
+    {GL_R32I,                4},
+    {GL_R32UI,               4},
+    {GL_RG8I,                2},
+    {GL_RG8UI,               2},
+    {GL_RG16I,               4},
+    {GL_RG16UI,              4},
+    {GL_RG32I,               8},
+    {GL_RG32UI,              8},
+    {GL_COMPRESSED_RGB_S3TC_DXT1_EXT,  8},
+    {GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, 8},
+    {GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, 16},
+    {GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, 16},
+    {GL_RGBA32F,             16},
+    {GL_RGB32F,              12},
+    {GL_RGBA16F,             8},
+    {GL_RGB16F,              6},
+    {GL_DEPTH24_STENCIL8,    4},
+    {GL_DEPTH_COMPONENT32F,  4},
+    {GL_DEPTH32F_STENCIL8,   5},
+    {GL_STENCIL_INDEX8,      1},
+    {GL_RGBA32UI,            16},
+    {GL_RGB32UI,             12},
+    {GL_RGBA16UI,            8},
+    {GL_RGB16UI,             6},
+    {GL_RGBA8UI,             4},
+    {GL_RGB8UI,              3},
+    {GL_RGBA32I,             16},
+    {GL_RGB32I,              12},
+    {GL_RGBA16I,             8},
+    {GL_RGB16I,              6},
+    {GL_RGBA8I,              4},
+    {GL_RGB8I,               3},
+};
+static constexpr size_t kInternalFormatSizeCount = sizeof(kInternalFormatSizes) / sizeof(kInternalFormatSizes[0]);
+
 size_t get_internal_format_size(GLenum internalformat) {
-    switch (internalformat) {
-    case GL_R8:        return 1;
-    case GL_R8I:
-    case GL_R8UI:      return 1;
-    case GL_R16:       return 2;
-    case GL_R16I:
-    case GL_R16UI:
-    case GL_R16F:      return 2;
-    case GL_R32I:
-    case GL_R32UI:
-    case GL_R32F:      return 4;
-
-    case GL_RG8:       return 2;
-    case GL_RG8I:
-    case GL_RG8UI:     return 2;
-    case GL_RG16:      return 4;
-    case GL_RG16I:
-    case GL_RG16UI:
-    case GL_RG16F:     return 4;
-    case GL_RG32I:
-    case GL_RG32UI:
-    case GL_RG32F:     return 8;
-
-    case GL_RGB8:      return 3;
-    case GL_RGB8I:
-    case GL_RGB8UI:    return 3;
-    case GL_RGB16:     return 6;
-    case GL_RGB16I:
-    case GL_RGB16UI:
-    case GL_RGB16F:    return 6;
-    case GL_RGB32I:
-    case GL_RGB32UI:
-    case GL_RGB32F:    return 12;
-
-    case GL_RGBA8:     return 4;
-    case GL_RGBA8I:
-    case GL_RGBA8UI:   return 4;
-    case GL_RGBA16:    return 8;
-    case GL_RGBA16I:
-    case GL_RGBA16UI:
-    case GL_RGBA16F:   return 8;
-    case GL_RGBA32I:
-    case GL_RGBA32UI:
-    case GL_RGBA32F:   return 16;
-
-    case GL_DEPTH_COMPONENT16:   return 2;
-    case GL_DEPTH_COMPONENT24:   return 3;
-    case GL_DEPTH_COMPONENT32:   return 4;
-    case GL_DEPTH_COMPONENT32F:  return 4;
-    case GL_DEPTH24_STENCIL8:    return 4;
-    case GL_DEPTH32F_STENCIL8:   return 5;
-
-    case GL_STENCIL_INDEX8:      return 1;
-
-    case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-    case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT: return 8;
-    case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-    case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT: return 16;
-
-    default:
-        LOG_E("Unknown internal format size for %s", glEnumToString(internalformat));
-        return 0;
+    size_t lo = 0, hi = kInternalFormatSizeCount;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (kInternalFormatSizes[mid].key < internalformat) lo = mid + 1;
+        else hi = mid;
     }
+    if (lo < kInternalFormatSizeCount && kInternalFormatSizes[lo].key == internalformat) [[likely]]
+        return kInternalFormatSizes[lo].value;
+    LOG_E("Unknown internal format size for %s", glEnumToString(internalformat));
+    return 0;
 }
 
 extern std::string bufSampelerName;

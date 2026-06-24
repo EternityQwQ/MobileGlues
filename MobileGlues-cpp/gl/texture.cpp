@@ -59,108 +59,92 @@ int nlevel(int size, int level) {
 // Texture target enum conversion
 // ============================================================================
 
+// Lookup table: TextureTarget → GLenum (dense enum 0..23)
+static const GLenum kTextureTargetToGLEnum[] = {
+    GL_TEXTURE_1D,                   // TEXTURE_1D = 0
+    GL_PROXY_TEXTURE_1D,             // PROXY_TEXTURE_1D = 1
+    GL_TEXTURE_1D_ARRAY,             // TEXTURE_1D_ARRAY = 2
+    GL_PROXY_TEXTURE_1D_ARRAY,       // PROXY_TEXTURE_1D_ARRAY = 3
+    GL_TEXTURE_2D,                   // TEXTURE_2D = 4
+    GL_PROXY_TEXTURE_2D,             // PROXY_TEXTURE_2D = 5
+    GL_TEXTURE_2D_ARRAY,             // TEXTURE_2D_ARRAY = 6
+    GL_PROXY_TEXTURE_2D_ARRAY,       // PROXY_TEXTURE_2D_ARRAY = 7
+    GL_TEXTURE_2D_MULTISAMPLE,       // TEXTURE_2D_MULTISAMPLE = 8
+    GL_PROXY_TEXTURE_2D_MULTISAMPLE, // PROXY_TEXTURE_2D_MULTISAMPLE = 9
+    GL_TEXTURE_2D_MULTISAMPLE_ARRAY,         // TEXTURE_2D_MULTISAMPLE_ARRAY = 10
+    GL_PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY,   // PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY = 11
+    GL_TEXTURE_3D,                   // TEXTURE_3D = 12
+    GL_PROXY_TEXTURE_3D,             // PROXY_TEXTURE_3D = 13
+    GL_TEXTURE_RECTANGLE,            // TEXTURE_RECTANGLE = 14
+    GL_PROXY_TEXTURE_RECTANGLE,      // PROXY_TEXTURE_RECTANGLE = 15
+    GL_TEXTURE_CUBE_MAP,             // TEXTURE_CUBE_MAP = 16
+    GL_PROXY_TEXTURE_CUBE_MAP,       // PROXY_TEXTURE_CUBE_MAP = 17
+    GL_TEXTURE_CUBE_MAP_ARRAY,       // TEXTURE_CUBE_MAP_ARRAY = 18
+    GL_PROXY_TEXTURE_CUBE_MAP_ARRAY, // PROXY_TEXTURE_CUBE_MAP_ARRAY = 19
+    GL_TEXTURE_BUFFER,               // TEXTURE_BUFFER = 20
+};
+
 GLenum ConvertTextureTargetToGLEnum(TextureTarget target) {
-    switch (target) {
-    case TextureTarget::TEXTURE_1D:
-        return GL_TEXTURE_1D;
-    case TextureTarget::PROXY_TEXTURE_1D:
-        return GL_PROXY_TEXTURE_1D;
-    case TextureTarget::TEXTURE_1D_ARRAY:
-        return GL_TEXTURE_1D_ARRAY;
-    case TextureTarget::PROXY_TEXTURE_1D_ARRAY:
-        return GL_PROXY_TEXTURE_1D_ARRAY;
-    case TextureTarget::TEXTURE_2D:
-        return GL_TEXTURE_2D;
-    case TextureTarget::PROXY_TEXTURE_2D:
-        return GL_PROXY_TEXTURE_2D;
-    case TextureTarget::TEXTURE_2D_ARRAY:
-        return GL_TEXTURE_2D_ARRAY;
-    case TextureTarget::PROXY_TEXTURE_2D_ARRAY:
-        return GL_PROXY_TEXTURE_2D_ARRAY;
-    case TextureTarget::TEXTURE_2D_MULTISAMPLE:
-        return GL_TEXTURE_2D_MULTISAMPLE;
-    case TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE:
-        return GL_PROXY_TEXTURE_2D_MULTISAMPLE;
-    case TextureTarget::TEXTURE_2D_MULTISAMPLE_ARRAY:
-        return GL_TEXTURE_2D_MULTISAMPLE_ARRAY;
-    case TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY:
-        return GL_PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY;
-    case TextureTarget::TEXTURE_3D:
-        return GL_TEXTURE_3D;
-    case TextureTarget::PROXY_TEXTURE_3D:
-        return GL_PROXY_TEXTURE_3D;
-    case TextureTarget::TEXTURE_RECTANGLE:
-        return GL_TEXTURE_RECTANGLE;
-    case TextureTarget::PROXY_TEXTURE_RECTANGLE:
-        return GL_PROXY_TEXTURE_RECTANGLE;
-    case TextureTarget::TEXTURE_CUBE_MAP:
-        return GL_TEXTURE_CUBE_MAP;
-    case TextureTarget::PROXY_TEXTURE_CUBE_MAP:
-        return GL_PROXY_TEXTURE_CUBE_MAP;
-    case TextureTarget::TEXTURE_CUBE_MAP_ARRAY:
-        return GL_TEXTURE_CUBE_MAP_ARRAY;
-    case TextureTarget::PROXY_TEXTURE_CUBE_MAP_ARRAY:
-        return GL_PROXY_TEXTURE_CUBE_MAP_ARRAY;
-    case TextureTarget::TEXTURE_BUFFER:
-        return GL_TEXTURE_BUFFER;
-    default:
-        return GL_TEXTURE_2D;
+    auto idx = static_cast<unsigned>(target);
+    if (idx < sizeof(kTextureTargetToGLEnum) / sizeof(kTextureTargetToGLEnum[0])) [[likely]] {
+        return kTextureTargetToGLEnum[idx];
     }
+    return GL_TEXTURE_2D;
 }
 
+// Sorted key-value pair for binary search lookup (GLenum → TextureTarget)
+struct TexTargetEntry {
+    GLenum key;
+    TextureTarget value;
+};
+
+static const TexTargetEntry kGLEnumToTextureTarget[] = {
+    {GL_TEXTURE_1D, TextureTarget::TEXTURE_1D},
+    {GL_TEXTURE_2D, TextureTarget::TEXTURE_2D},
+    {GL_PROXY_TEXTURE_1D, TextureTarget::PROXY_TEXTURE_1D},
+    {GL_PROXY_TEXTURE_2D, TextureTarget::PROXY_TEXTURE_2D},
+    {GL_TEXTURE_3D, TextureTarget::TEXTURE_3D},
+    {GL_PROXY_TEXTURE_3D, TextureTarget::PROXY_TEXTURE_3D},
+    {GL_TEXTURE_RECTANGLE, TextureTarget::TEXTURE_RECTANGLE},
+    {GL_PROXY_TEXTURE_RECTANGLE, TextureTarget::PROXY_TEXTURE_RECTANGLE},
+    {GL_TEXTURE_CUBE_MAP, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_CUBE_MAP_POSITIVE_X, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_CUBE_MAP_NEGATIVE_X, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_CUBE_MAP_POSITIVE_Y, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_CUBE_MAP_POSITIVE_Z, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, TextureTarget::TEXTURE_CUBE_MAP},
+    {GL_PROXY_TEXTURE_CUBE_MAP, TextureTarget::PROXY_TEXTURE_CUBE_MAP},
+    {GL_TEXTURE_1D_ARRAY, TextureTarget::TEXTURE_1D_ARRAY},
+    {GL_PROXY_TEXTURE_1D_ARRAY, TextureTarget::PROXY_TEXTURE_1D_ARRAY},
+    {GL_TEXTURE_2D_ARRAY, TextureTarget::TEXTURE_2D_ARRAY},
+    {GL_PROXY_TEXTURE_2D_ARRAY, TextureTarget::PROXY_TEXTURE_2D_ARRAY},
+    {GL_TEXTURE_BUFFER, TextureTarget::TEXTURE_BUFFER},
+    {GL_TEXTURE_CUBE_MAP_ARRAY, TextureTarget::TEXTURE_CUBE_MAP_ARRAY},
+    {GL_PROXY_TEXTURE_CUBE_MAP_ARRAY, TextureTarget::PROXY_TEXTURE_CUBE_MAP_ARRAY},
+    {GL_TEXTURE_2D_MULTISAMPLE, TextureTarget::TEXTURE_2D_MULTISAMPLE},
+    {GL_PROXY_TEXTURE_2D_MULTISAMPLE, TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE},
+    {GL_TEXTURE_2D_MULTISAMPLE_ARRAY, TextureTarget::TEXTURE_2D_MULTISAMPLE_ARRAY},
+    {GL_PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY, TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY},
+};
+
+static constexpr size_t kTexTargetEntryCount = sizeof(kGLEnumToTextureTarget) / sizeof(kGLEnumToTextureTarget[0]);
+
 TextureTarget ConvertGLEnumToTextureTarget(GLenum target) {
-    switch (target) {
-    case GL_TEXTURE_1D:
-        return TextureTarget::TEXTURE_1D;
-    case GL_PROXY_TEXTURE_1D:
-        return TextureTarget::PROXY_TEXTURE_1D;
-    case GL_TEXTURE_1D_ARRAY:
-        return TextureTarget::TEXTURE_1D_ARRAY;
-    case GL_PROXY_TEXTURE_1D_ARRAY:
-        return TextureTarget::PROXY_TEXTURE_1D_ARRAY;
-    case GL_TEXTURE_2D:
-        return TextureTarget::TEXTURE_2D;
-    case GL_PROXY_TEXTURE_2D:
-        return TextureTarget::PROXY_TEXTURE_2D;
-    case GL_TEXTURE_2D_ARRAY:
-        return TextureTarget::TEXTURE_2D_ARRAY;
-    case GL_PROXY_TEXTURE_2D_ARRAY:
-        return TextureTarget::PROXY_TEXTURE_2D_ARRAY;
-    case GL_TEXTURE_2D_MULTISAMPLE:
-        return TextureTarget::TEXTURE_2D_MULTISAMPLE;
-    case GL_PROXY_TEXTURE_2D_MULTISAMPLE:
-        return TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE;
-    case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
-        return TextureTarget::TEXTURE_2D_MULTISAMPLE_ARRAY;
-    case GL_PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY:
-        return TextureTarget::PROXY_TEXTURE_2D_MULTISAMPLE_ARRAY;
-    case GL_TEXTURE_3D:
-        return TextureTarget::TEXTURE_3D;
-    case GL_PROXY_TEXTURE_3D:
-        return TextureTarget::PROXY_TEXTURE_3D;
-    case GL_TEXTURE_RECTANGLE:
-        return TextureTarget::TEXTURE_RECTANGLE;
-    case GL_PROXY_TEXTURE_RECTANGLE:
-        return TextureTarget::PROXY_TEXTURE_RECTANGLE;
-    case GL_PROXY_TEXTURE_CUBE_MAP:
-        return TextureTarget::PROXY_TEXTURE_CUBE_MAP;
-    case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-    case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-    case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-    case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-    case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-    case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-    case GL_TEXTURE_CUBE_MAP:
-        return TextureTarget::TEXTURE_CUBE_MAP;
-    case GL_TEXTURE_CUBE_MAP_ARRAY:
-        return TextureTarget::TEXTURE_CUBE_MAP_ARRAY;
-    case GL_PROXY_TEXTURE_CUBE_MAP_ARRAY:
-        return TextureTarget::PROXY_TEXTURE_CUBE_MAP_ARRAY;
-    case GL_TEXTURE_BUFFER:
-        return TextureTarget::TEXTURE_BUFFER;
-    default:
-        return TextureTarget::UNKNWON;
+    // Binary search on sorted array
+    size_t lo = 0, hi = kTexTargetEntryCount;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (kGLEnumToTextureTarget[mid].key < target) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
     }
+    if (lo < kTexTargetEntryCount && kGLEnumToTextureTarget[lo].key == target) [[likely]] {
+        return kGLEnumToTextureTarget[lo].value;
+    }
+    return TextureTarget::UNKNWON;
 }
 
 // ============================================================================
@@ -206,7 +190,7 @@ void InitTextureMap(size_t expectedSize) {
 
 TextureObject* GetOrCreateTextureObject(GLuint index) {
     if (index >= BufferObjectsVec.size()) {
-        BufferObjectsVec.resize(index + 100, nullptr);
+        BufferObjectsVec.resize(index + 1, nullptr);
     }
 
     auto& obj = BufferObjectsVec[index];

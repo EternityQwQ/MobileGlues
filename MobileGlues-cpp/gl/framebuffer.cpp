@@ -292,11 +292,14 @@ void glDrawBuffer(GLenum buffer) {
 
         if (buffer == GL_NONE) {
             framebuffers[current_draw_fbo].color_attachments_all_none = true;
-            std::vector<GLenum> buffers(maxAttachments, GL_NONE);
+            // Use thread_local static buffer to avoid per-frame allocation
+            static thread_local std::vector<GLenum> buffers;
+            buffers.assign(maxAttachments, GL_NONE);
             glDrawBuffers(maxAttachments, buffers.data());
         } else if (buffer >= GL_COLOR_ATTACHMENT0 && buffer < GL_COLOR_ATTACHMENT0 + maxAttachments) {
             framebuffers[current_draw_fbo].color_attachments_all_none = false;
-            std::vector<GLenum> buffers(maxAttachments, GL_NONE);
+            static thread_local std::vector<GLenum> buffers;
+            buffers.assign(maxAttachments, GL_NONE);
             buffers[buffer - GL_COLOR_ATTACHMENT0] = buffer;
             glDrawBuffers(maxAttachments, buffers.data());
         }
@@ -331,7 +334,9 @@ void glDrawBuffers(GLsizei n, const GLenum* bufs) {
         fbo.color_attachments_all_none = false;
     }
 
-    std::vector<GLenum> new_bufs(n);
+    // Use thread_local static buffer to avoid per-frame allocation
+    static thread_local std::vector<GLenum> new_bufs;
+    new_bufs.resize(n);
     for (int i = 0; i < n; i++) {
         if (bufs[i] >= GL_COLOR_ATTACHMENT0 && bufs[i] < GL_COLOR_ATTACHMENT0 + MAX_COLOR_ATTACHMENTS) {
             GLenum logical_attachment = bufs[i];

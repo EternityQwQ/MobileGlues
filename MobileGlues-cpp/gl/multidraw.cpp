@@ -225,6 +225,15 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, const GLsizei* c
     GLint prevElementBuffer;
     GLES.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &prevElementBuffer);
 
+    // Reusable thread_local temp buffer and memory to avoid per-draw allocation
+    static thread_local GLuint tempBuffer = 0;
+    static thread_local size_t tempBufferSize = 0;
+    static thread_local std::vector<uint8_t> tempMem;
+
+    if (tempBuffer == 0) {
+        GLES.glGenBuffers(1, &tempBuffer);
+    }
+
     for (GLsizei i = 0; i < primcount; ++i) {
         if (counts[i] <= 0) continue;
 
@@ -247,26 +256,16 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, const GLsizei* c
             return;
         }
 
-        GLuint tempBuffer;
-        GLES.glGenBuffers(1, &tempBuffer);
-        GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
+        size_t neededSize = currentCount * indexSize;
+        tempMem.resize(neededSize);
+        void* tempIndices = tempMem.data();
 
         void* srcData = nullptr;
-        void* tempIndices = malloc(currentCount * indexSize);
-        if (!tempIndices) {
-            GLES.glDeleteBuffers(1, &tempBuffer);
-            continue;
-        }
-
         if (prevElementBuffer != 0) {
             GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
-            srcData = GLES.glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, (GLintptr)currentIndices, currentCount * indexSize,
+            srcData = GLES.glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, (GLintptr)currentIndices, neededSize,
                                             GL_MAP_READ_BIT);
-            if (!srcData) {
-                free(tempIndices);
-                GLES.glDeleteBuffers(1, &tempBuffer);
-                continue;
-            }
+            if (!srcData) continue;
         } else {
             srcData = (void*)currentIndices;
         }
@@ -294,11 +293,13 @@ void mg_glMultiDrawElementsBaseVertex_drawelements(GLenum mode, const GLsizei* c
         }
 
         GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tempBuffer);
-        GLES.glBufferData(GL_ELEMENT_ARRAY_BUFFER, currentCount * indexSize, tempIndices, GL_STREAM_DRAW);
-        free(tempIndices);
+        if (neededSize > tempBufferSize) {
+            GLES.glBufferData(GL_ELEMENT_ARRAY_BUFFER, neededSize, tempIndices, GL_STREAM_DRAW);
+            tempBufferSize = neededSize;
+        } else {
+            GLES.glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, neededSize, tempIndices);
+        }
         GLES.glDrawElements(mode, currentCount, type, 0);
-
-        GLES.glDeleteBuffers(1, &tempBuffer);
     }
 
     GLES.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, prevElementBuffer);
