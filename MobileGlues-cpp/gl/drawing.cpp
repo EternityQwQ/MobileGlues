@@ -39,6 +39,9 @@ extern UnorderedMap<GLuint, bool> program_map_is_atomic_counter_emulated;
 
 UnorderedMap<GLuint, SamplerInfo> g_samplerCacheForSamplerBuffer;
 
+// Cache for prepareForDraw: skip redundant work when program hasn't changed
+static GLuint g_lastPreparedProgram = 0;
+
 // ============================================================================
 // Internal helpers
 // ============================================================================
@@ -116,10 +119,16 @@ void setupBufferTextureUniforms(GLuint program) {
 // ============================================================================
 
 void prepareForDraw() {
+    // Fast path: if texture buffer emulation is disabled, nothing to do
+    if (!hardware->emulate_texture_buffer) return;
+
+    // Fast path: skip if same program already prepared
+    GLuint prog = gl_state->current_program;
+    if (prog == g_lastPreparedProgram) return;
+    g_lastPreparedProgram = prog;
+
     LOG_D("prepareForDraw...")
-    if (hardware->emulate_texture_buffer) {
-        setupBufferTextureUniforms(gl_state->current_program);
-    }
+    setupBufferTextureUniforms(prog);
 }
 
 // ============================================================================

@@ -27,6 +27,41 @@ GLuint current_draw_fbo = 0;
 GLuint current_read_fbo = 0;
 std::vector<framebuffer_t> framebuffers;
 
+// ============================================================================
+// Temporary FBO pool: avoids create/destroy overhead in hot paths
+// (glCopyTexImage2D, glCopyTexSubImage2D, glGetTexImage, glClearTexImage)
+// ============================================================================
+static std::vector<GLuint> g_tempFboPool;
+static size_t g_tempFboPoolIndex = 0;
+
+GLuint acquireTempFBO() {
+    if (g_tempFboPoolIndex < g_tempFboPool.size()) {
+        return g_tempFboPool[g_tempFboPoolIndex++];
+    }
+    GLuint fbo;
+    GLES.glGenFramebuffers(1, &fbo);
+    g_tempFboPool.push_back(fbo);
+    g_tempFboPoolIndex++;
+    return fbo;
+}
+
+void releaseTempFBO(GLuint fbo) {
+    // Simple: just decrement index. FBO is not deleted, just returned to pool.
+    if (g_tempFboPoolIndex > 0) g_tempFboPoolIndex--;
+}
+
+void releaseAllTempFBOs() {
+    g_tempFboPoolIndex = 0;
+}
+
+void cleanupTempFBOs() {
+    for (GLuint fbo : g_tempFboPool) {
+        GLES.glDeleteFramebuffers(1, &fbo);
+    }
+    g_tempFboPool.clear();
+    g_tempFboPoolIndex = 0;
+}
+
 void ensure_max_attachments() {
     if (MAX_COLOR_ATTACHMENTS == 0) {
         GLES.glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &MAX_COLOR_ATTACHMENTS);

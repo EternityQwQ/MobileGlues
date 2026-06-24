@@ -46,16 +46,20 @@
 // These helpers analyze GLSL source code to determine whether a shader
 // is already ES-compatible (direct pass-through) or requires conversion.
 // They also detect unsupported shader types (geometry/tessellation).
+// All functions use strstr() on raw C strings to avoid std::string copies.
 // ============================================================================
+
+// Fast strstr-based helpers (no std::string allocation)
+static inline bool has_str(const char* haystack, const char* needle) {
+    return strstr(haystack, needle) != nullptr;
+}
 
 // ---------------------------------------------------------------------------
 // Determine if shader is already ES-compatible (direct passthrough)
 // ESSL versions recognized: 100 (ES 1.0), 300 (ES 3.0), 310 (ES 3.1), 320 (ES 3.2)
 // ---------------------------------------------------------------------------
 static bool is_direct_shader(const char* glsl_code) {
-    std::string code = glsl_code;
     int version = getGLSLVersion(glsl_code);
-    if (version == -1) return false;
     return (version == 100 || version == 300 || version == 310 || version == 320);
 }
 
@@ -64,17 +68,19 @@ static bool is_direct_shader(const char* glsl_code) {
 // Geometry shaders are NOT supported by ES 3.2 — detected for rejection
 // ---------------------------------------------------------------------------
 static bool is_geometry_shader(const char* glsl_code) {
-    std::string code = glsl_code;
-    return (code.find("layout(triangles)") != std::string::npos ||
-            code.find("layout(triangle_strip)") != std::string::npos ||
-            code.find("layout(points)") != std::string::npos ||
-            code.find("layout(lines)") != std::string::npos ||
-            code.find("layout(line_strip)") != std::string::npos ||
-            code.find("layout(quads)") != std::string::npos ||
-            code.find("layout(isolines)") != std::string::npos ||
-            code.find("max_vertices") != std::string::npos ||
-            code.find("EmitVertex()") != std::string::npos ||
-            code.find("EndPrimitive()") != std::string::npos);
+    // Check for max_vertices first (most unique identifier)
+    if (has_str(glsl_code, "max_vertices")) return true;
+    if (has_str(glsl_code, "EmitVertex()")) return true;
+    if (has_str(glsl_code, "EndPrimitive()")) return true;
+    // Check layout qualifiers
+    if (has_str(glsl_code, "layout(triangles)")) return true;
+    if (has_str(glsl_code, "layout(triangle_strip)")) return true;
+    if (has_str(glsl_code, "layout(points)")) return true;
+    if (has_str(glsl_code, "layout(lines)")) return true;
+    if (has_str(glsl_code, "layout(line_strip)")) return true;
+    if (has_str(glsl_code, "layout(quads)")) return true;
+    if (has_str(glsl_code, "layout(isolines)")) return true;
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,11 +88,11 @@ static bool is_geometry_shader(const char* glsl_code) {
 // Tessellation shaders are NOT supported by ES 3.2 — detected for rejection
 // ---------------------------------------------------------------------------
 static bool is_tessellation_shader(const char* glsl_code) {
-    std::string code = glsl_code;
-    return (code.find("layout(vertices") != std::string::npos ||
-            code.find("gl_TessLevel") != std::string::npos ||
-            code.find("gl_TessCoord") != std::string::npos ||
-            code.find("patch") != std::string::npos);
+    if (has_str(glsl_code, "gl_TessLevel")) return true;
+    if (has_str(glsl_code, "gl_TessCoord")) return true;
+    if (has_str(glsl_code, "layout(vertices")) return true;
+    if (has_str(glsl_code, "patch")) return true;
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,13 +100,13 @@ static bool is_tessellation_shader(const char* glsl_code) {
 // Compute shaders ARE supported by ES 3.2 — detected to identify shader type
 // ---------------------------------------------------------------------------
 static bool is_compute_shader(const char* glsl_code) {
-    std::string code = glsl_code;
-    return (code.find("layout(local_size_x") != std::string::npos ||
-            code.find("gl_WorkGroupSize") != std::string::npos ||
-            code.find("gl_WorkGroupID") != std::string::npos ||
-            code.find("gl_LocalInvocationID") != std::string::npos ||
-            code.find("gl_GlobalInvocationID") != std::string::npos ||
-            code.find("gl_NumWorkGroups") != std::string::npos);
+    if (has_str(glsl_code, "layout(local_size_x")) return true;
+    if (has_str(glsl_code, "gl_WorkGroupSize")) return true;
+    if (has_str(glsl_code, "gl_WorkGroupID")) return true;
+    if (has_str(glsl_code, "gl_LocalInvocationID")) return true;
+    if (has_str(glsl_code, "gl_GlobalInvocationID")) return true;
+    if (has_str(glsl_code, "gl_NumWorkGroups")) return true;
+    return false;
 }
 
 // ---------------------------------------------------------------------------

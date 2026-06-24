@@ -61,20 +61,18 @@ static std::array<GLuint, BINDING_COUNT> g_bound_buffers_arr = {0};
 // ============================================================================
 
 static inline int ensure_buffer_capacity(GLuint id) {
-    if ((int)g_gen_buffers.size() <= (int)id) {
-        g_gen_buffers.resize(id + 1, 0);
-        g_gen_buffer_exists.resize(id + 1, 0);
-        if (g_buffer_datasize.size() <= (size_t)id) g_buffer_datasize.resize(id + 1, 0);
-    }
+    if (id < (GLuint)g_gen_buffers.size()) [[likely]] return 0;
+    g_gen_buffers.resize(id + 1, 0);
+    g_gen_buffer_exists.resize(id + 1, 0);
+    if (g_buffer_datasize.size() <= (size_t)id) g_buffer_datasize.resize(id + 1, 0);
     return 0;
 }
 
 static inline int ensure_array_capacity(GLuint id) {
-    if ((int)g_gen_arrays.size() <= (int)id) {
-        g_gen_arrays.resize(id + 1, 0);
-        g_gen_array_exists.resize(id + 1, 0);
-        if (g_element_array_buffer_per_vao.size() <= (size_t)id) g_element_array_buffer_per_vao.resize(id + 1, 0);
-    }
+    if (id < (GLuint)g_gen_arrays.size()) [[likely]] return 0;
+    g_gen_arrays.resize(id + 1, 0);
+    g_gen_array_exists.resize(id + 1, 0);
+    if (g_element_array_buffer_per_vao.size() <= (size_t)id) g_element_array_buffer_per_vao.resize(id + 1, 0);
     return 0;
 }
 
@@ -102,9 +100,9 @@ GLboolean has_buffer(GLuint key) {
 }
 
 void modify_buffer(GLuint key, GLuint value) {
-    if (key >= g_gen_buffers.size()) ensure_buffer_capacity(key);
+    if (key >= g_gen_buffers.size()) [[unlikely]] ensure_buffer_capacity(key);
     g_gen_buffers[key] = value;
-    if (key >= g_gen_buffer_exists.size()) g_gen_buffer_exists.resize(key + 1, 0);
+    if (key >= g_gen_buffer_exists.size()) [[unlikely]] g_gen_buffer_exists.resize(key + 1, 0);
     g_gen_buffer_exists[key] = 1;
 }
 
@@ -330,7 +328,7 @@ void glBindBuffer(GLenum target, GLuint buffer) {
         update_vao_ibo_binding(find_bound_array(), buffer);
     }
 
-    if (!has_buffer(buffer) || buffer == 0) {
+    if (!has_buffer(buffer) || buffer == 0) [[unlikely]] {
         GLES.glBindBuffer(target, buffer);
         CHECK_GL_ERROR
         return;
@@ -661,33 +659,32 @@ void glTexBuffer(GLenum target, GLenum internalformat, GLuint buffer) {
         GLint prev_pixel_buffer_binding = 0;
 
         GLES.glActiveTexture(GL_TEXTURE0 + 15);
-
         GLES.glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
         LOG_D("Current GL_TEXTURE_BINDING_BUFFER = %d", boundTexture);
-        GLES.glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &prev_pixel_buffer_binding);
-        LOG_D("Previous GL_PIXEL_UNPACK_BUFFER_BINDING = %d", prev_pixel_buffer_binding);
 
         if (!boundTexture) {
             LOG_D("No texture bound to GL_TEXTURE_BUFFER, skipping emulation.");
+            GLES.glActiveTexture(GL_TEXTURE0 + gl_state->current_tex_unit);
             return;
         }
 
-        GLES.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, real_buffer);
-        LOG_D("Bound GL_PIXEL_UNPACK_BUFFER to buffer %u", real_buffer);
+        // Save and set pixel unpack state in one batch
+        GLint prev_alignment, prev_row_length, prev_skip_pixels, prev_skip_rows;
+        GLES.glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &prev_pixel_buffer_binding);
+        GLES.glGetIntegerv(GL_UNPACK_ALIGNMENT, &prev_alignment);
+        GLES.glGetIntegerv(GL_UNPACK_ROW_LENGTH, &prev_row_length);
+        GLES.glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &prev_skip_pixels);
+        GLES.glGetIntegerv(GL_UNPACK_SKIP_ROWS, &prev_skip_rows);
 
+        // Bind PBO once and query buffer size
+        GLES.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, real_buffer);
         GLint bufferSize;
         GLES.glGetBufferParameteriv(GL_PIXEL_UNPACK_BUFFER, GL_BUFFER_SIZE, &bufferSize);
         LOG_D("Buffer size = %d bytes", bufferSize);
 
-        GLES.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-        GLES.glBindTexture(GL_TEXTURE_2D, boundTexture);
-        LOG_D("Binding texture %u to GL_TEXTURE_2D", boundTexture);
-
         const GLuint MAX_WIDTH = 8192;
         GLuint pixelSize = get_internal_format_size(internalformat);
         GLuint numElements = bufferSize / pixelSize;
-
         GLuint width = numElements;
         GLuint height = 1;
 
@@ -696,24 +693,19 @@ void glTexBuffer(GLenum target, GLenum internalformat, GLuint buffer) {
             height = (numElements + MAX_WIDTH - 1) / MAX_WIDTH;
         }
 
-        GLint prev_alignment, prev_row_length, prev_skip_pixels, prev_skip_rows;
-        GLES.glGetIntegerv(GL_UNPACK_ALIGNMENT, &prev_alignment);
-        GLES.glGetIntegerv(GL_UNPACK_ROW_LENGTH, &prev_row_length);
-        GLES.glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &prev_skip_pixels);
-        GLES.glGetIntegerv(GL_UNPACK_SKIP_ROWS, &prev_skip_rows);
-
         GLES.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
         GLES.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 
+        // Create 2D texture and upload from PBO
+        GLES.glBindTexture(GL_TEXTURE_2D, boundTexture);
         GLES.glTexImage2D(GL_TEXTURE_2D, 0, internalformat, width, height, 0, GL_RED_INTEGER, GL_BYTE, nullptr);
-
-        GLES.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, real_buffer);
 
         for (GLuint row = 0; row < height; ++row) {
             void* offset = (void*)(row * width * pixelSize);
             GLES.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, row, width, 1, GL_RED_INTEGER, GL_BYTE, offset);
         }
 
+        // Restore pixel store state
         GLES.glPixelStorei(GL_UNPACK_ALIGNMENT, prev_alignment);
         GLES.glPixelStorei(GL_UNPACK_ROW_LENGTH, prev_row_length);
         GLES.glPixelStorei(GL_UNPACK_SKIP_PIXELS, prev_skip_pixels);
@@ -730,21 +722,16 @@ void glTexBuffer(GLenum target, GLenum internalformat, GLuint buffer) {
         tex->swizzle_param[2] = GL_BLUE;
         tex->swizzle_param[3] = GL_ALPHA;
 
-        LOG_D("Called glTexImage2D with internalformat = 0x%X", internalformat);
-
         GLES.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         GLES.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         GLES.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         GLES.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         GLES.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         GLES.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-        LOG_D("Set texture parameters: MIN_FILTER=NEAREST, MAG_FILTER=NEAREST, WRAP_S/T=CLAMP_TO_EDGE");
 
+        // Restore GL state
         GLES.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, prev_pixel_buffer_binding);
-
         GLES.glActiveTexture(GL_TEXTURE0 + gl_state->current_tex_unit);
-
-        LOG_D("Restored bindings: GL_PIXEL_UNPACK_BUFFER=%d", prev_pixel_buffer_binding);
 
         CHECK_GL_ERROR;
         return;
@@ -812,7 +799,7 @@ void glBindVertexArray(GLuint array) {
     // update bound ibo
     set_bound_buffer_by_target(GL_ELEMENT_ARRAY_BUFFER, get_ibo_by_vao(array));
 
-    if (!has_array(array) || array == 0) {
+    if (!has_array(array) || array == 0) [[unlikely]] {
         LOG_D("Does not have va=%d found!", array)
         GLES.glBindVertexArray(array);
         CHECK_GL_ERROR

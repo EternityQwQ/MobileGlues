@@ -274,11 +274,34 @@ TextureObject* mgGetTexObjectByID(unsigned texture) {
 // Internal format conversion helper
 // ============================================================================
 
+// ============================================================================
 // Inline mapping for various internal formats to format and type
+// Most common formats (RGBA8, RGBA, RGBA16F, R8, RGBA32F) are handled first
+// with early return for maximum performance on the hot path.
+// ============================================================================
 void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
     if (format && *format == GL_BGRA) *format = GL_RGBA;
 
+    // Fast path: most common formats first
     switch (*internal_format) {
+    // --- Most common formats (hot path) ---
+    case GL_RGBA8:
+    case GL_RGBA:
+        if (type) *type = GL_UNSIGNED_BYTE;
+        if (format) *format = GL_RGBA;
+        return;
+    case GL_RGBA16F:
+        if (type) *type = GL_HALF_FLOAT;
+        return;
+    case GL_R8:
+        if (format) *format = GL_RED;
+        if (type) *type = GL_UNSIGNED_BYTE;
+        return;
+    case GL_RGBA32F:
+    case GL_RGB32F:
+        if (type) *type = GL_FLOAT;
+        return;
+    // --- Less common formats ---
     case GL_DEPTH_COMPONENT16:
         if (type) *type = GL_UNSIGNED_SHORT;
         break;
@@ -317,10 +340,6 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
     case GL_SRGB8:
         if (type) *type = GL_UNSIGNED_BYTE;
         break;
-    case GL_RGBA32F:
-    case GL_RGB32F:
-        if (type) *type = GL_FLOAT;
-        break;
     case GL_RGB9_E5:
         if (type) *type = GL_UNSIGNED_INT_5_9_9_9_REV;
         break;
@@ -345,14 +364,6 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
         }
         break;
     }
-    case GL_RGBA8:
-    case GL_RGBA:
-        if (type) *type = GL_UNSIGNED_BYTE;
-        if (format) *format = GL_RGBA;
-        break;
-    case GL_RGBA16F:
-        if (type) *type = GL_HALF_FLOAT;
-        break;
     case GL_R16:
         *internal_format = GL_R16F;
         if (type) *type = GL_FLOAT;
@@ -370,11 +381,6 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
         *internal_format = GL_RG16F;
         if (type) *type = GL_HALF_FLOAT;
         if (format) *format = GL_RG;
-        break;
-        // Inline R and RG channel mappings
-    case GL_R8:
-        if (format) *format = GL_RED;
-        if (type) *type = GL_UNSIGNED_BYTE;
         break;
     case GL_R8_SNORM:
         if (format) *format = GL_RED;
@@ -405,8 +411,8 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
                 break;
             default:
                 LOG_E("Unsupported type for GL_RED: %s", glEnumToString(*type));
-                if (type) *type = GL_UNSIGNED_BYTE; // Fallback to unsigned byte
-                *internal_format = GL_R8;           // Fallback to R8
+                if (type) *type = GL_UNSIGNED_BYTE;
+                *internal_format = GL_R8;
                 if (format) *format = GL_RED;
                 break;
             }
@@ -483,6 +489,7 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
     case GL_RGBA8_SNORM:
         if (format) *format = GL_RGBA;
         if (type) *type = GL_BYTE;
+        break;
     default:
         // fallback handling for GL_RGB8, GL_RGBA16_SNORM etc.
         if (*internal_format == GL_RGB8) {
@@ -907,9 +914,7 @@ void glCopyTexImage2D(GLenum target, GLint level, GLenum internalFormat, GLint x
         GLint prevDrawFBO;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevDrawFBO);
         CHECK_GL_ERROR_NO_INIT
-        GLuint tempDrawFBO;
-        glGenFramebuffers(1, &tempDrawFBO);
-        CHECK_GL_ERROR_NO_INIT
+        GLuint tempDrawFBO = acquireTempFBO();
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tempDrawFBO);
         CHECK_GL_ERROR_NO_INIT
         GLint currentTex;
@@ -918,10 +923,9 @@ void glCopyTexImage2D(GLenum target, GLint level, GLenum internalFormat, GLint x
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, currentTex, level);
         CHECK_GL_ERROR_NO_INIT
 
-        if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) [[unlikely]] {
             CHECK_GL_ERROR_NO_INIT
-            glDeleteFramebuffers(1, &tempDrawFBO);
-            CHECK_GL_ERROR_NO_INIT
+            releaseTempFBO(tempDrawFBO);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
             CHECK_GL_ERROR_NO_INIT
             return;
@@ -932,8 +936,7 @@ void glCopyTexImage2D(GLenum target, GLint level, GLenum internalFormat, GLint x
         CHECK_GL_ERROR_NO_INIT
 
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        CHECK_GL_ERROR_NO_INIT
-        glDeleteFramebuffers(1, &tempDrawFBO);
+        releaseTempFBO(tempDrawFBO);
         CHECK_GL_ERROR_NO_INIT
     } else {
         GLES.glCopyTexImage2D(target, level, internalFormat, x, y, width, height, border);
@@ -970,16 +973,15 @@ void glCopyTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffse
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevReadFBO);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevDrawFBO);
 
-        GLuint tempDrawFBO;
-        glGenFramebuffers(1, &tempDrawFBO);
+        GLuint tempDrawFBO = acquireTempFBO();
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tempDrawFBO);
 
         GLint currentTex;
         glGetIntegerv(get_binding_for_target(target), &currentTex);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, currentTex, level);
 
-        if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-            glDeleteFramebuffers(1, &tempDrawFBO);
+        if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) [[unlikely]] {
+            releaseTempFBO(tempDrawFBO);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
             return;
         }
@@ -988,7 +990,7 @@ void glCopyTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffse
                                GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        glDeleteFramebuffers(1, &tempDrawFBO);
+        releaseTempFBO(tempDrawFBO);
     } else {
         GLES.glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
     }
@@ -1213,8 +1215,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
     GLint prevReadFBO;
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevReadFBO);
 
-    GLuint tempFBO = 0;
-    glGenFramebuffers(1, &tempFBO);
+    GLuint tempFBO = acquireTempFBO();
     glBindFramebuffer(GL_FRAMEBUFFER, tempFBO);
 
     GLint textureId = 0;
@@ -1227,7 +1228,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
         LOG_E("glGetTexImage: Unsupported or complex target: 0x%x", target)
         glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        glDeleteFramebuffers(1, &tempFBO);
+        releaseTempFBO(tempFBO);
         return;
     }
     glGetIntegerv(textureBindingTarget, &textureId);
@@ -1236,7 +1237,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
         LOG_E("glGetTexImage: No texture bound to the specified target.")
         glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        glDeleteFramebuffers(1, &tempFBO);
+        releaseTempFBO(tempFBO);
         return;
     }
 
@@ -1248,7 +1249,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
         LOG_E("glGetTexImage: Texture level %d has zero width or height.", level)
         glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        glDeleteFramebuffers(1, &tempFBO);
+        releaseTempFBO(tempFBO);
         return;
     }
 
@@ -1259,11 +1260,11 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
     }
 
     GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
+    if (fboStatus != GL_FRAMEBUFFER_COMPLETE) [[unlikely]] {
         LOG_E("glGetTexImage: Failed to create complete framebuffer. Status: 0x%x", fboStatus)
         glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        glDeleteFramebuffers(1, &tempFBO);
+        releaseTempFBO(tempFBO);
         return;
     }
 
@@ -1273,7 +1274,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-    glDeleteFramebuffers(1, &tempFBO);
+    releaseTempFBO(tempFBO);
 }
 
 #if GLOBAL_DEBUG || DEBUG
@@ -1321,18 +1322,18 @@ void glClearTexImage(GLuint texture, GLint level, GLenum format, GLenum type, co
     GLuint fbo, prevDrawFBO, prevReadFBO;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, (int*)&prevDrawFBO);
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, (int*)&prevReadFBO);
-    glGenFramebuffers(1, &fbo);
+    fbo = acquireTempFBO();
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     CHECK_GL_ERROR_NO_INIT
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
 
     CHECK_GL_ERROR_NO_INIT
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) [[unlikely]] {
         LOG_D("  -> exit")
         glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-        glDeleteFramebuffers(1, &fbo);
+        releaseTempFBO(fbo);
         CHECK_GL_ERROR_NO_INIT
         return;
     }
@@ -1376,7 +1377,7 @@ void glClearTexImage(GLuint texture, GLint level, GLenum format, GLenum type, co
     }
     glBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFBO);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevDrawFBO);
-    glDeleteFramebuffers(1, &fbo);
+    releaseTempFBO(fbo);
     CHECK_GL_ERROR_NO_INIT
 }
 

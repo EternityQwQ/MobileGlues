@@ -46,4 +46,10 @@ extern "C"
 
 void InitFramebufferMap(size_t expectedSize);
 
+// Temporary FBO pool for hot-path operations
+GLuint acquireTempFBO();
+void releaseTempFBO(GLuint fbo);
+void releaseAllTempFBOs();
+void cleanupTempFBOs();
+
 #endif // MOBILEGLUES_FRAMEBUFFER_H
