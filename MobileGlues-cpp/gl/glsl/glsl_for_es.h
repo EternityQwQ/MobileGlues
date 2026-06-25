@@ -43,9 +43,6 @@ std::string GLSLtoGLSLES(const char* glsl_code, GLenum glsl_type, uint essl_vers
 // Direct conversion without caching (used internally by GLSLtoGLSLES through _2)
 std::string GLSLtoGLSLES_2(const char* glsl_code, GLenum glsl_type, uint essl_version, int& return_code);
 
-// Deprecated fallback path (returns empty string)
-std::string GLSLtoGLSLES_1(const char* glsl_code, GLenum glsl_type, uint esversion, int& return_code);
-
 // Extract #version from GLSL source (e.g. "#version 330 core" → 330, not found → -1)
 int getGLSLVersion(const char* glsl_code);
 

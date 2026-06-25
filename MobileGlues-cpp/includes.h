@@ -40,10 +40,16 @@ extern "C"
 }
 #endif
 
+#if __has_include(<FastSTL/UnorderedMap.h>)
 #include <FastSTL/UnorderedMap.h>
-
 template <typename Key, typename T, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>,
           class Allocator = std::allocator<std::pair<const Key, T>>>
 using UnorderedMap = FastSTL::unordered_map<Key, T, Hash, KeyEqual, Allocator>;
+#else
+#include <unordered_map>
+template <typename Key, typename T, class Hash = std::hash<Key>, class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<std::pair<const Key, T>>>
+using UnorderedMap = std::unordered_map<Key, T, Hash, KeyEqual, Allocator>;
+#endif
 
 #endif // MOBILEGLUES_INCLUDES_H
