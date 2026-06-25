@@ -206,7 +206,8 @@ NATIVE_FUNCTION_HEAD(GLboolean, glIsProgram, GLuint program) NATIVE_FUNCTION_END
 // glGetActiveUniform is handled in program.cpp (state tracking)
 // glGetAttribLocation is handled in program.cpp (state tracking)
 // glGetUniformLocation is handled in program.cpp (state tracking)
-// glUniform1i is handled in drawing.cpp (state tracking)
+// glUniform1i is a native ES 3.2 pass-through
+NATIVE_FUNCTION_HEAD(void, glUniform1i, GLint location, GLint v0) NATIVE_FUNCTION_END_NO_RETURN(void, glUniform1i, location,v0)
 NATIVE_FUNCTION_HEAD(void, glUniform1f, GLint location, GLfloat v0) NATIVE_FUNCTION_END_NO_RETURN(void, glUniform1f, location,v0)
 NATIVE_FUNCTION_HEAD(void, glUniform1fv, GLint location, GLsizei count, const GLfloat *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniform1fv, location,count,value)
 NATIVE_FUNCTION_HEAD(void, glUniform1iv, GLint location, GLsizei count, const GLint *value) NATIVE_FUNCTION_END_NO_RETURN(void, glUniform1iv, location,count,value)

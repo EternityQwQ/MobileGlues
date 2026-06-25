@@ -225,12 +225,7 @@ void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean laye
     CHECK_GL_ERROR
 }
 
-void glUniform1i(GLint location, GLint v0) {
-    LOG()
-    LOG_D("glUniform1i, location: %d, v0: %d", location, v0)
-    GLES.glUniform1i(location, v0);
-    CHECK_GL_ERROR
-}
+// glUniform1i moved to gl_native.cpp as a native pass-through
 
 void bindAllAtomicCounterAsSSBO();
 void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) {

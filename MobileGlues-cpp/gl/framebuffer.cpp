@@ -75,7 +75,10 @@ void ensure_max_attachments() {
 
 framebuffer_t& get_framebuffer(GLuint id) {
     if (id >= framebuffers.size()) {
-        framebuffers.resize(id + 10);
+        // Exponential growth: double the size until it covers id, with a minimum of 16
+        size_t new_size = framebuffers.size() > 0 ? framebuffers.size() : 16;
+        while (new_size <= id) new_size *= 2;
+        framebuffers.resize(new_size);
     }
     return framebuffers[id];
 }

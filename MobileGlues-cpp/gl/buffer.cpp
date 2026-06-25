@@ -349,8 +349,8 @@ void glDeleteBuffers(GLsizei n, const GLuint* buffers) {
     LOG()
     LOG_D("glDeleteBuffers(%i, %p)", n, buffers)
     for (int i = 0; i < n; ++i) {
-        if (find_real_buffer(buffers[i])) {
-            GLuint real_buff = find_real_buffer(buffers[i]);
+        auto [real_buff, exists] = find_real_buffer_with_exists(buffers[i]);
+        if (exists) {
             GLES.glDeleteBuffers(1, &real_buff);
             CHECK_GL_ERROR
         }
@@ -559,12 +559,17 @@ void glBindVertexBuffer(GLuint bindingindex, GLuint buffer, GLintptr offset, GLs
     LOG()
     LOG_D("glBindVertexBuffer, bindingindex = %d, buffer = %d, offset = %p, stride = %i", bindingindex, buffer, offset,
           stride)
-    if (!has_buffer(buffer) || buffer == 0) {
+    if (buffer == 0) [[unlikely]] {
         GLES.glBindVertexBuffer(bindingindex, buffer, offset, stride);
         CHECK_GL_ERROR
         return;
     }
-    GLuint real_buffer = find_real_buffer(buffer);
+    auto [real_buffer, exists] = find_real_buffer_with_exists(buffer);
+    if (!exists) [[unlikely]] {
+        GLES.glBindVertexBuffer(bindingindex, buffer, offset, stride);
+        CHECK_GL_ERROR
+        return;
+    }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
         modify_buffer(buffer, real_buffer);
@@ -848,10 +853,12 @@ void glDeleteVertexArrays(GLsizei n, const GLuint* arrays) {
     LOG()
     LOG_D("glDeleteVertexArrays(%i, %p)", n, arrays)
     for (int i = 0; i < n; ++i) {
-        if (find_real_array(arrays[i])) {
+        if (has_array(arrays[i]) && arrays[i] != 0) {
             GLuint real_array = find_real_array(arrays[i]);
-            GLES.glDeleteVertexArrays(1, &real_array);
-            CHECK_GL_ERROR
+            if (real_array) {
+                GLES.glDeleteVertexArrays(1, &real_array);
+                CHECK_GL_ERROR
+            }
         }
         remove_array(arrays[i]);
     }

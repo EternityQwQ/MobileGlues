@@ -54,7 +54,7 @@ void glMultiDrawElements(GLenum mode, const GLsizei* count, GLenum type, const v
                          GLsizei primcount) {
     static glMultiDrawElements_t func_ptr = nullptr;
 
-    if (func_ptr == nullptr) {
+    if (func_ptr == nullptr) [[unlikely]] {
         switch (global_settings.multidraw_mode) {
         case multidraw_mode_t::PreferIndirect:
             func_ptr = mg_glMultiDrawElements_indirect;
@@ -92,7 +92,7 @@ void glMultiDrawElementsBaseVertex(GLenum mode, const GLsizei* counts, GLenum ty
                                    GLsizei primcount, const GLint* basevertex) {
     static glMultiDrawElementsBaseVertex_t func_ptr = nullptr;
 
-    if (func_ptr == nullptr) {
+    if (func_ptr == nullptr) [[unlikely]] {
         switch (global_settings.multidraw_mode) {
         case multidraw_mode_t::PreferIndirect:
             func_ptr = mg_glMultiDrawElementsBaseVertex_indirect;
