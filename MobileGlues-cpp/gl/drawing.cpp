@@ -26,6 +26,10 @@
 
 #define DEBUG 0
 
+// Texture binding tracking per unit (avoids glGetIntegerv GPU round-trip).
+// Updated by glBindTexture in texture.cpp.
+GLuint g_tracked_tex2d_binding[32] = {0};
+
 // ============================================================================
 // Module-level state: sampler buffer emulation
 // ============================================================================
@@ -99,8 +103,7 @@ void setupBufferTextureUniforms(GLuint program) {
         const GLint unit = 15;
 
         GLES.glActiveTexture(GL_TEXTURE0 + unit);
-        GLint texId = 0;
-        GLES.glGetIntegerv(GL_TEXTURE_BINDING_2D, &texId);
+        GLuint texId = g_tracked_tex2d_binding[unit];
         if (texId == 0) {
             GLES.glActiveTexture(GL_TEXTURE0 + prev_unit);
             continue;

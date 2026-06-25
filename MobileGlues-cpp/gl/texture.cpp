@@ -37,6 +37,7 @@
 
 #include "../gles/gles.h"
 #include "../gles/loader.h"
+#include "drawing.h"
 #include "framebuffer.h"
 #include "log.h"
 #include "mg.h"
@@ -563,11 +564,17 @@ void glBindTexture(GLenum target, GLuint texture) {
     if (hardware && gl_state && hardware->emulate_texture_buffer && target == GL_TEXTURE_BUFFER) {
         GLES.glActiveTexture(GL_TEXTURE0 + 15);
         GLES.glBindTexture(GL_TEXTURE_2D, texture);
+        g_tracked_tex2d_binding[15] = texture;
         GLES.glActiveTexture(GL_TEXTURE0 + gl_state->current_tex_unit);
     } else {
         GLES.glBindTexture(target, texture);
     }
     CHECK_GL_ERROR_NO_INIT
+
+    // Track GL_TEXTURE_2D binding per-unit to avoid glGetIntegerv GPU queries
+    if (target == GL_TEXTURE_2D) {
+        g_tracked_tex2d_binding[GetCurrentTextureUnitIndex()] = texture;
+    }
 
     int currentUnitIndex = GetCurrentTextureUnitIndex();
     auto& currentUnit = GetTextureUnit(currentUnitIndex);

@@ -128,6 +128,14 @@ static inline std::pair<GLuint, bool> find_real_buffer_with_exists(GLuint key) {
     return {0, false};
 }
 
+// Fast-path: direct assignment without capacity checks, for use when the caller
+// has already verified the buffer exists (e.g. after find_real_buffer_with_exists).
+// Avoids redundant ensure_buffer_capacity in hot paths like glBindBuffer,
+// glBindBufferRange, glBindBufferBase, glBindVertexBuffer, glTexBuffer.
+static inline void modify_buffer_direct(GLuint key, GLuint value) {
+    g_gen_buffers[key] = value;
+}
+
 GLuint get_ibo_by_vao(GLuint vao) {
     if (vao < g_element_array_buffer_per_vao.size()) return g_element_array_buffer_per_vao[vao];
     return 0;
@@ -402,7 +410,7 @@ void glBindBuffer(GLenum target, GLuint buffer) {
     }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
-        modify_buffer(buffer, real_buffer);
+        modify_buffer_direct(buffer, real_buffer);
         CHECK_GL_ERROR
     }
     LOG_D("glBindBuffer: %d -> %d", buffer, real_buffer)
@@ -419,7 +427,8 @@ void glBufferData(GLenum target, GLsizeiptr size, const void* data, GLenum usage
     LOG_D("glBufferData, target = %s, size = %d, data = 0x%x, usage = %s", glEnumToString(target), size, data,
           glEnumToString(usage))
     GLES.glBufferData(target, size, data, usage);
-    set_buffer_data_size(find_bound_buffer(target), size);
+    int idx = binding_target_to_index(target);
+    if (idx >= 0) set_buffer_data_size(g_bound_buffers_arr[idx], size);
     CHECK_GL_ERROR
 }
 
@@ -520,7 +529,7 @@ void glBindBufferRange(GLenum target, GLuint index, GLuint buffer, GLintptr offs
     }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
-        modify_buffer(buffer, real_buffer);
+        modify_buffer_direct(buffer, real_buffer);
         CHECK_GL_ERROR
     }
     GLES.glBindBufferRange(target, index, real_buffer, offset, size);
@@ -550,7 +559,7 @@ void glBindBufferBase(GLenum target, GLuint index, GLuint buffer) {
     }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
-        modify_buffer(buffer, real_buffer);
+        modify_buffer_direct(buffer, real_buffer);
         CHECK_GL_ERROR
     }
     GLES.glBindBufferBase(target, index, real_buffer);
@@ -584,7 +593,7 @@ void glBindVertexBuffer(GLuint bindingindex, GLuint buffer, GLintptr offset, GLs
     }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
-        modify_buffer(buffer, real_buffer);
+        modify_buffer_direct(buffer, real_buffer);
         CHECK_GL_ERROR
     }
     GLES.glBindVertexBuffer(bindingindex, real_buffer, offset, stride);
@@ -737,7 +746,7 @@ void glTexBuffer(GLenum target, GLenum internalformat, GLuint buffer) {
     GLuint real_buffer = find_real_buffer(buffer);
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
-        modify_buffer(buffer, real_buffer);
+        modify_buffer_direct(buffer, real_buffer);
         CHECK_GL_ERROR
     }
 
@@ -841,7 +850,7 @@ void glTexBufferRange(GLenum target, GLenum internalformat, GLuint buffer, GLint
     GLuint real_buffer = find_real_buffer(buffer);
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
-        modify_buffer(buffer, real_buffer);
+        modify_buffer_direct(buffer, real_buffer);
         CHECK_GL_ERROR
     }
     GLES.glTexBufferRange(target, internalformat, real_buffer, offset, size);

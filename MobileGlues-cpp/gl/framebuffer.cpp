@@ -296,8 +296,8 @@ void glDrawBuffer(GLenum buffer) {
         GLenum buffers[] = {buffer};
         glDrawBuffers(1, buffers);
     } else {
-        GLint maxAttachments;
-        GLES.glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxAttachments);
+        // Use cached MAX_COLOR_ATTACHMENTS (set by ensure_max_attachments on first FBO gen)
+        GLint maxAttachments = MAX_COLOR_ATTACHMENTS;
 
         // Pre-sized thread_local buffer to avoid per-frame allocation
         static thread_local std::vector<GLenum> tls_buffers;

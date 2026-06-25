@@ -38,6 +38,10 @@ struct SamplerInfo {
     std::vector<GLint> samplers;
 };
 
+// Texture binding tracking per unit to avoid glGetIntegerv GPU queries.
+// Updated by glBindTexture (texture.cpp), read by setupBufferTextureUniforms (drawing.cpp).
+extern GLuint g_tracked_tex2d_binding[32];
+
 #ifdef __cplusplus
 extern "C"
 {

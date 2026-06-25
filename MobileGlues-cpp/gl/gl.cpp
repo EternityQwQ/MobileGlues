@@ -155,7 +155,7 @@ void glClear(GLbitfield mask) {
     CHECK_GL_ERROR_NO_INIT
 
     if (global_settings.angle == AngleMode::Enabled && mask == GL_DEPTH_BUFFER_BIT &&
-        fabs(currentDepthValue - 1.0f) <= 0.001f && framebuffers[current_draw_fbo].color_attachments_all_none) {
+        fabs(currentDepthValue - 1.0f) <= 0.001f && framebuffers[current_draw_fbo].color_attachments_all_none) [[unlikely]] {
         LOG_D("doing depth workaround")
         if (global_settings.angle_depth_clear_fix_mode == AngleDepthClearFixMode::Mode1)
             DrawDepthClearTri();
@@ -164,7 +164,7 @@ void glClear(GLbitfield mask) {
             GLES.glClearBufferfv(GL_DEPTH, 0, &clear_depth_value);
         }
         GLES.glClear(mask);
-    } else {
+    } else [[likely]] {
         GLES.glClear(mask);
     }
 
