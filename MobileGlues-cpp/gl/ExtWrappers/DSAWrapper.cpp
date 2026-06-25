@@ -8,118 +8,66 @@
 #include "DSAWrapper.h"
 #include <cassert>
 #include "../texture.h"
+#include "../framebuffer.h"
 
 #define DEBUG 0
 
+// Lookup table: target → binding query (sorted by target value for binary search)
+struct TargetToBindingQuery {
+    GLenum target;
+    GLenum query;
+};
+static constexpr TargetToBindingQuery kTargetToBindingQuery[] = {
+    {GL_VERTEX_ARRAY,                GL_VERTEX_ARRAY_BINDING},
+    {GL_PROGRAM_PIPELINE,            GL_PROGRAM_PIPELINE_BINDING},
+    {GL_SAMPLER,                     GL_SAMPLER_BINDING},
+    {GL_ARRAY_BUFFER,                GL_ARRAY_BUFFER_BINDING},
+    {GL_ELEMENT_ARRAY_BUFFER,        GL_ELEMENT_ARRAY_BUFFER_BINDING},
+    {GL_PIXEL_PACK_BUFFER,           GL_PIXEL_PACK_BUFFER_BINDING},
+    {GL_PIXEL_UNPACK_BUFFER,         GL_PIXEL_UNPACK_BUFFER_BINDING},
+    {GL_UNIFORM_BUFFER,              GL_UNIFORM_BUFFER_BINDING},
+    {GL_TEXTURE_BUFFER,              GL_TEXTURE_BUFFER_BINDING},
+    {GL_TRANSFORM_FEEDBACK_BUFFER,   GL_TRANSFORM_FEEDBACK_BUFFER_BINDING},
+    {GL_READ_FRAMEBUFFER,            GL_READ_FRAMEBUFFER_BINDING},
+    {GL_DRAW_FRAMEBUFFER,            GL_DRAW_FRAMEBUFFER_BINDING},
+    {GL_FRAMEBUFFER,                 GL_FRAMEBUFFER_BINDING},
+    {GL_RENDERBUFFER,                GL_RENDERBUFFER_BINDING},
+    {GL_TRANSFORM_FEEDBACK,          GL_TRANSFORM_FEEDBACK_BINDING},
+    {GL_COPY_READ_BUFFER,            GL_COPY_READ_BUFFER_BINDING},
+    {GL_COPY_WRITE_BUFFER,           GL_COPY_WRITE_BUFFER_BINDING},
+    {GL_DRAW_INDIRECT_BUFFER,        GL_DRAW_INDIRECT_BUFFER_BINDING},
+    {GL_SHADER_STORAGE_BUFFER,       GL_SHADER_STORAGE_BUFFER_BINDING},
+    {GL_DISPATCH_INDIRECT_BUFFER,    GL_DISPATCH_INDIRECT_BUFFER_BINDING},
+    {GL_QUERY_BUFFER,                GL_QUERY_BUFFER_BINDING},
+    {GL_ATOMIC_COUNTER_BUFFER,       GL_ATOMIC_COUNTER_BUFFER_BINDING},
+};
+static constexpr size_t kTargetToBindingQueryCount = sizeof(kTargetToBindingQuery) / sizeof(kTargetToBindingQuery[0]);
+
 GLenum GetBindingQuery(GLenum target, bool forceTexture = false) {
-    switch (target) {
-    case GL_TEXTURE_BUFFER:
-        return forceTexture ? GL_TEXTURE_BINDING_BUFFER : GL_TEXTURE_BUFFER_BINDING;
-
-    case GL_ARRAY_BUFFER:
-        return GL_ARRAY_BUFFER_BINDING;
-    case GL_ATOMIC_COUNTER_BUFFER:
-        return GL_ATOMIC_COUNTER_BUFFER_BINDING;
-    case GL_COPY_READ_BUFFER:
-        return GL_COPY_READ_BUFFER_BINDING;
-    case GL_COPY_WRITE_BUFFER:
-        return GL_COPY_WRITE_BUFFER_BINDING;
-    case GL_DISPATCH_INDIRECT_BUFFER:
-        return GL_DISPATCH_INDIRECT_BUFFER_BINDING;
-    case GL_DRAW_INDIRECT_BUFFER:
-        return GL_DRAW_INDIRECT_BUFFER_BINDING;
-    case GL_ELEMENT_ARRAY_BUFFER:
-        return GL_ELEMENT_ARRAY_BUFFER_BINDING;
-    case GL_PIXEL_PACK_BUFFER:
-        return GL_PIXEL_PACK_BUFFER_BINDING;
-    case GL_PIXEL_UNPACK_BUFFER:
-        return GL_PIXEL_UNPACK_BUFFER_BINDING;
-    case GL_QUERY_BUFFER:
-        return GL_QUERY_BUFFER_BINDING;
-    case GL_SHADER_STORAGE_BUFFER:
-        return GL_SHADER_STORAGE_BUFFER_BINDING;
-    case GL_TRANSFORM_FEEDBACK_BUFFER:
-        return GL_TRANSFORM_FEEDBACK_BUFFER_BINDING;
-    case GL_UNIFORM_BUFFER:
-        return GL_UNIFORM_BUFFER_BINDING;
-
-    case GL_FRAMEBUFFER:
-        return GL_FRAMEBUFFER_BINDING;
-    case GL_DRAW_FRAMEBUFFER:
-        return GL_DRAW_FRAMEBUFFER_BINDING;
-    case GL_READ_FRAMEBUFFER:
-        return GL_READ_FRAMEBUFFER_BINDING;
-
-    case GL_RENDERBUFFER:
-        return GL_RENDERBUFFER_BINDING;
-
-    case GL_VERTEX_ARRAY:
-        return GL_VERTEX_ARRAY_BINDING;
-    case GL_VERTEX_ARRAY_BINDING:
-        return GL_VERTEX_ARRAY_BINDING;
-
-    case GL_PROGRAM_PIPELINE:
-        return GL_PROGRAM_PIPELINE_BINDING;
-
-    case GL_PROGRAM:
-        return GL_CURRENT_PROGRAM;
-
-    case GL_SAMPLER:
-        return GL_SAMPLER_BINDING;
-
-    case GL_TEXTURE:
-        return GL_TEXTURE_BINDING_2D;
-    case GL_TEXTURE_1D:
-        return GL_TEXTURE_BINDING_1D;
-    case GL_TEXTURE_1D_ARRAY:
-        return GL_TEXTURE_BINDING_1D_ARRAY;
-    case GL_TEXTURE_2D:
-        return GL_TEXTURE_BINDING_2D;
-    case GL_TEXTURE_2D_ARRAY:
-        return GL_TEXTURE_BINDING_2D_ARRAY;
-    case GL_TEXTURE_2D_MULTISAMPLE:
-        return GL_TEXTURE_BINDING_2D_MULTISAMPLE;
-    case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
-        return GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY;
-    case GL_TEXTURE_3D:
-        return GL_TEXTURE_BINDING_3D;
-    case GL_TEXTURE_CUBE_MAP:
-        return GL_TEXTURE_BINDING_CUBE_MAP;
-    case GL_TEXTURE_CUBE_MAP_ARRAY:
-        return GL_TEXTURE_BINDING_CUBE_MAP_ARRAY;
-    case GL_TEXTURE_RECTANGLE:
-        return GL_TEXTURE_BINDING_RECTANGLE;
-
-    case GL_TRANSFORM_FEEDBACK:
-        return GL_TRANSFORM_FEEDBACK_BINDING;
-
-    case GL_SAMPLES_PASSED:
-        return GL_SAMPLES_PASSED;
-    case GL_PRIMITIVES_GENERATED:
-        return GL_PRIMITIVES_GENERATED;
-
-    case GL_DEBUG_OUTPUT:
-        return GL_DEBUG_OUTPUT;
-    case GL_DEBUG_OUTPUT_SYNCHRONOUS:
-        return GL_DEBUG_OUTPUT_SYNCHRONOUS;
-
-    default:
-        LOG_W("[DSA] GetBindingQuery: unknown target %u", target);
-        return 0;
+    if (forceTexture && target == GL_TEXTURE_BUFFER) return GL_TEXTURE_BINDING_BUFFER;
+    // Binary search for buffer/FBO/RBO/VAO/sampler/pipeline targets
+    size_t lo = 0, hi = kTargetToBindingQueryCount;
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (kTargetToBindingQuery[mid].target < target) lo = mid + 1;
+        else hi = mid;
     }
+    if (lo < kTargetToBindingQueryCount && kTargetToBindingQuery[lo].target == target) [[likely]]
+        return kTargetToBindingQuery[lo].query;
+    // Texture targets (returned as-is; used by find_bound_buffer for buffer targets only)
+    return target;
 }
 
 // buffer
 static thread_local ankerl::unordered_dense::map<GLenum, std::vector<GLuint>> bufferBindingStack;
 void temporarilyBindBuffer(GLuint bufferID, GLenum target = GL_ARRAY_BUFFER) {
     GLenum bindingQuery = GetBindingQuery(target);
-    GLint prev = 0;
-    glGetIntegerv(bindingQuery, &prev);
+    GLuint prev = find_bound_buffer(bindingQuery);  // CPU-side lookup, no GPU stall
     if (prev == bufferID) {
         bufferBindingStack[target].push_back(-1);
         // return;
     }
-    bufferBindingStack[target].push_back(static_cast<GLuint>(prev));
+    bufferBindingStack[target].push_back(prev);
 
     LOG_D("[DSA] [TempBind] target=0x%X, prev=%u -> bind=%u", target, prev, bufferID);
     CHECK_GL_ERROR;
@@ -428,14 +376,12 @@ void glGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, vo
 // framebuffer
 static thread_local ankerl::unordered_dense::map<GLenum, std::vector<GLuint>> framebufferBindingStack;
 void temporarilyBindFramebuffer(GLuint framebufferID, GLenum target = GL_DRAW_FRAMEBUFFER) {
-    GLenum bindingQuery = GetBindingQuery(target);
-    GLint prev = 0;
-    glGetIntegerv(bindingQuery, &prev);
+    GLuint prev = (target == GL_READ_FRAMEBUFFER) ? current_read_fbo : current_draw_fbo;
     if (prev == framebufferID) {
         framebufferBindingStack[target].push_back(-1);
         // return;
     }
-    framebufferBindingStack[target].push_back(static_cast<GLuint>(prev));
+    framebufferBindingStack[target].push_back(prev);
     LOG_D("[DSA] [TempBind] target=0x%X, prev=%u -> bind=%u", target, prev, framebufferID);
     CHECK_GL_ERROR;
     glBindFramebuffer(target, framebufferID);
@@ -877,14 +823,14 @@ GLenum GetTexTarget(GLuint texture) {
 
 void temporarilyBindTexture(GLuint textureID, GLenum possibleTarget = 0) {
     GLenum target = possibleTarget ? possibleTarget : GetTexTarget(textureID);
-    GLenum bindingQuery = GetBindingQuery(target, true);
-    GLint prev = 0;
-    glGetIntegerv(bindingQuery, &prev);
-    if (prev == static_cast<GLint>(textureID)) {
+    GLuint prev = 0;
+    auto prevTexObj = mgGetTexObjectByTarget(target);
+    if (prevTexObj) prev = prevTexObj->texture;
+    if (prev == textureID) {
         textureBindingStack[target].push_back(-1);
         // return;
     }
-    textureBindingStack[target].push_back(static_cast<GLuint>(prev));
+    textureBindingStack[target].push_back(prev);
     LOG_D("[DSA] [TempBind] target=0x%X, prev=%u -> bind=%u", target, prev, textureID);
     CHECK_GL_ERROR;
     glBindTexture(target, textureID);
@@ -1151,8 +1097,7 @@ void glBindTextureUnit(GLuint unit, GLuint texture) {
         LOG_W("[DSA] Invalid parameters for glBindTextureUnit");
         // return;
     }
-    GLint prevUnit = 0;
-    glGetIntegerv(GL_ACTIVE_TEXTURE, &prevUnit);
+    GLint prevUnit = GL_TEXTURE0 + GetCurrentTextureUnitIndex();
     GLenum target = GetTexTarget(texture);
     glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(target, texture);
@@ -1225,7 +1170,7 @@ void temporarilyBindVertexArray(GLint vaoID) {
     }
     LOG_D("[DSA] [TempBind] VAO: %u -> bind=%u", prevVAO, vaoID);
     CHECK_GL_ERROR;
-    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVAO);
+    prevVAO = find_bound_array();  // CPU-side lookup, no GPU stall
     glBindVertexArray(vaoID);
     CHECK_GL_ERROR_NO_INIT;
 }

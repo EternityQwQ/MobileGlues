@@ -51,7 +51,8 @@ void setupBufferTextureUniforms(GLuint program) {
 
     if (!program_map_is_sampler_buffer_emulated[program]) return;
 
-    if (g_samplerCacheForSamplerBuffer.find(program) == g_samplerCacheForSamplerBuffer.end()) {
+    auto it = g_samplerCacheForSamplerBuffer.find(program);
+    if (it == g_samplerCacheForSamplerBuffer.end()) {
         auto& progSamplerInfo = g_samplerCacheForSamplerBuffer[program];
         GLint locWidth = GLES.glGetUniformLocation(program, "u_BufferTexWidth");
         GLint locHeight = GLES.glGetUniformLocation(program, "u_BufferTexHeight");
@@ -81,9 +82,10 @@ void setupBufferTextureUniforms(GLuint program) {
                 progSamplerInfo.samplers.push_back(locSampler);
             }
         }
+        it = g_samplerCacheForSamplerBuffer.find(program);
     }
 
-    auto& progSamplerInfo = g_samplerCacheForSamplerBuffer[program];
+    auto& progSamplerInfo = it->second;
 
     GLint locWidth = progSamplerInfo.locWidth;
     GLint locHeight = progSamplerInfo.locHeight;

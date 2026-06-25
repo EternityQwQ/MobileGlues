@@ -12,6 +12,7 @@
 #include "buffer.h"
 #include "ankerl/unordered_dense.h"
 #include "texture.h"
+#include <utility>
 
 #define DEBUG 0
 
@@ -118,6 +119,13 @@ void remove_buffer(GLuint key) {
 GLuint find_real_buffer(GLuint key) {
     if (key < g_gen_buffers.size() && g_gen_buffer_exists[key]) return g_gen_buffers[key];
     return 0;
+}
+
+// Combined lookup: returns {real_buffer, exists} in a single bounds check
+static inline std::pair<GLuint, bool> find_real_buffer_with_exists(GLuint key) {
+    if (key < g_gen_buffers.size() && key < g_gen_buffer_exists.size() && g_gen_buffer_exists[key]) [[likely]]
+        return {g_gen_buffers[key], true};
+    return {0, false};
 }
 
 GLuint get_ibo_by_vao(GLuint vao) {
@@ -369,12 +377,17 @@ void glBindBuffer(GLenum target, GLuint buffer) {
         update_vao_ibo_binding(find_bound_array(), buffer);
     }
 
-    if (!has_buffer(buffer) || buffer == 0) [[unlikely]] {
+    if (buffer == 0) [[unlikely]] {
         GLES.glBindBuffer(target, buffer);
         CHECK_GL_ERROR
         return;
     }
-    GLuint real_buffer = find_real_buffer(buffer);
+    auto [real_buffer, exists] = find_real_buffer_with_exists(buffer);
+    if (!exists) [[unlikely]] {
+        GLES.glBindBuffer(target, buffer);
+        CHECK_GL_ERROR
+        return;
+    }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
         modify_buffer(buffer, real_buffer);
@@ -482,12 +495,17 @@ void glBindBufferRange(GLenum target, GLuint index, GLuint buffer, GLintptr offs
     LOG_D("glBindBufferRange, target = %s, index = %d, buffer = %d, offset = %p, size = %zi", glEnumToString(target),
           index, buffer, (void*)offset, size)
 
-    if (!has_buffer(buffer) || buffer == 0) {
+    if (buffer == 0) {
         GLES.glBindBufferRange(target, index, buffer, offset, size);
         CHECK_GL_ERROR
         return;
     }
-    GLuint real_buffer = find_real_buffer(buffer);
+    auto [real_buffer, exists] = find_real_buffer_with_exists(buffer);
+    if (!exists) {
+        GLES.glBindBufferRange(target, index, buffer, offset, size);
+        CHECK_GL_ERROR
+        return;
+    }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
         modify_buffer(buffer, real_buffer);
@@ -507,12 +525,17 @@ void glBindBufferBase(GLenum target, GLuint index, GLuint buffer) {
     LOG()
     LOG_D("glBindBufferBase, target = %s, index = %d, buffer = %d", glEnumToString(target), index, buffer)
 
-    if (!has_buffer(buffer) || buffer == 0) {
+    if (buffer == 0) {
         GLES.glBindBufferBase(target, index, buffer);
         CHECK_GL_ERROR
         return;
     }
-    GLuint real_buffer = find_real_buffer(buffer);
+    auto [real_buffer, exists] = find_real_buffer_with_exists(buffer);
+    if (!exists) {
+        GLES.glBindBufferBase(target, index, buffer);
+        CHECK_GL_ERROR
+        return;
+    }
     if (!real_buffer) {
         GLES.glGenBuffers(1, &real_buffer);
         modify_buffer(buffer, real_buffer);

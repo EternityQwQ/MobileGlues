@@ -193,6 +193,7 @@ public:
 
 TextureObject* mgGetTexObjectByTarget(GLenum target);
 TextureObject* mgGetTexObjectByID(unsigned texture);
+int GetCurrentTextureUnitIndex();
 void InitTextureMap(size_t expectedSize);
 
 #endif

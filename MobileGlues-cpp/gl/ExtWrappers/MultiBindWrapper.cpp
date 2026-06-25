@@ -12,8 +12,7 @@
 #define DEBUG 0
 
 void glBindTextures(GLuint first, GLsizei count, const GLuint* textures) {
-    GLuint prevUnit;
-    glGetIntegerv(GL_ACTIVE_TEXTURE, reinterpret_cast<GLint*>(&prevUnit));
+    GLuint prevUnit = GL_TEXTURE0 + GetCurrentTextureUnitIndex();
     for (GLsizei i = 0; i < count; ++i) {
         GLenum target = ConvertTextureTargetToGLEnum(mgGetTexObjectByID(textures[i])->target);
         glActiveTexture(GL_TEXTURE0 + first + i);
