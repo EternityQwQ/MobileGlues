@@ -1,3 +1,5 @@
+> [!WARNING]
+> 此项目完全由ai驱动开发
 # MobileGLESWrapper
 
 > **注意：这是非官方版本（Unofficial Fork）**
