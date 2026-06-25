@@ -36,12 +36,9 @@
 #include <glslang/Include/Types.h>
 #include <spirv_cross/spirv_cross_c.h>
 #include <iostream>
-#include <fstream>
 #include "../log.h"
 #include "glslang/SPIRV/GlslangToSpv.h"
 #include <string>
-#include <algorithm>
-#include <sstream>
 #include <set>
 #include <map>
 #include <vector>
@@ -56,6 +53,10 @@
 // ============================================================================
 // Section 1: Constants
 // ============================================================================
+
+constexpr int DEFAULT_GLSL_VERSION = 330;
+constexpr int TARGET_ES_VERSION = 320;
+constexpr int TARGET_SPV_VERSION = 450; // OpenGL 4.5 target for glslang
 
 const char* atomicCounterEmulatedWatermark = "// Non-opaque atomic uniform converted to SSBO";
 
@@ -74,7 +75,7 @@ static int map_glsl_to_opengl_version(int glsl_version) {
     if (glsl_version >= 330) return 330;
     if (glsl_version >= 150) return 150;
     if (glsl_version >= 140) return 140;
-    return 330;
+    return DEFAULT_GLSL_VERSION;
 }
 
 // ============================================================================
@@ -662,6 +663,7 @@ bool process_non_opaque_atomic_to_ssbo(std::string& source) {
 
 void process_sampler_buffer(std::string& source) {
     if (source.find("isamplerBuffer") == std::string::npos &&
+        source.find("usamplerBuffer") == std::string::npos &&
         source.find("samplerBuffer") == std::string::npos) {
         return;
     }
@@ -669,9 +671,15 @@ void process_sampler_buffer(std::string& source) {
     std::set<std::string> buffer_samplers;
 
     // Replace samplerBuffer types with sampler2D equivalents
+    // Order matters: isamplerBuffer/usamplerBuffer first, then bare samplerBuffer
     size_t pos = 0;
     while ((pos = source.find("isamplerBuffer", pos)) != std::string::npos) {
         source.replace(pos, 14, "isampler2D");
+        pos += 11;
+    }
+    pos = 0;
+    while ((pos = source.find("usamplerBuffer", pos)) != std::string::npos) {
+        source.replace(pos, 14, "usampler2D");
         pos += 11;
     }
     pos = 0;
@@ -690,10 +698,11 @@ void process_sampler_buffer(std::string& source) {
         size_t p = 0;
         while ((p = source.find(decl_prefix, p)) != std::string::npos) {
             p += 8;
-            bool is_isampler = (source.compare(p, 9, "isampler2") == 0);
-            bool is_sampler  = (source.compare(p, 8, "sampler2D") == 0);
-            if (is_isampler || is_sampler) {
-                size_t skip = is_isampler ? 9 : 8;
+            bool is_isampler  = (source.compare(p, 9, "isampler2") == 0);
+            bool is_usampler  = (source.compare(p, 9, "usampler2") == 0);
+            bool is_sampler   = (source.compare(p, 8, "sampler2D") == 0);
+            if (is_isampler || is_usampler || is_sampler) {
+                size_t skip = (is_isampler || is_usampler) ? 9 : 8;
                 p += skip;
                 while (p < source.size() && (source[p] == ' ' || source[p] == '\t')) p++;
                 size_t name_start = p;
@@ -924,11 +933,11 @@ std::string preprocess_glsl(const std::string& glsl, GLenum shaderType, bool* at
 int get_or_add_glsl_version(std::string& glsl) {
     int ver = getGLSLVersion(glsl.c_str());
     if (ver == -1) {
-        ver = 330;
+        ver = DEFAULT_GLSL_VERSION;
         glsl.insert(0, "#version 330 core\n");
     } else if (ver < 140) {
         glsl = replace_line_starting_with(glsl, "#version", "#version 330 core\n");
-        ver = 330;
+        ver = DEFAULT_GLSL_VERSION;
     } else if (ver < 330) {
         // Manual: replace #version NNN [...] with #version 330 core
         size_t pos = glsl.find("#version");
@@ -940,7 +949,7 @@ int get_or_add_glsl_version(std::string& glsl) {
             size_t profile_end = glsl.find('\n', num_end);
             glsl.replace(pos, (profile_end != std::string::npos ? profile_end : glsl.size()) - pos, "#version 330 core");
         }
-        ver = 330;
+        ver = DEFAULT_GLSL_VERSION;
     }
 
     if (ver >= 150 && glsl.find("compatibility") == std::string::npos &&
@@ -979,7 +988,7 @@ static void configure_shader_for_opengl(glslang::TShader& shader, EShLanguage sh
                                         int glsl_version, int target_gl_version) {
     using namespace glslang;
     shader.setEnvInput(EShSourceGlsl, shader_language, EShClientOpenGL, target_gl_version);
-    shader.setEnvClient(EShClientOpenGL, EShTargetOpenGL_450);
+    shader.setEnvClient(EShClientOpenGL, EShTargetOpenGL_450); // TARGET_SPV_VERSION = OpenGL 4.5
     shader.setEnvTarget(EShTargetSpv, EShTargetSpv_1_5);
     shader.setAutoMapLocations(true);
     shader.setAutoMapBindings(true);
@@ -1120,7 +1129,7 @@ std::string spirv_to_essl(std::vector<unsigned int> spirv, uint essl_version, GL
 
     spvc_compiler_create_compiler_options(compiler_glsl, &options);
 
-    spvc_compiler_options_set_uint(options, SPVC_COMPILER_OPTION_GLSL_VERSION, 320u);
+    spvc_compiler_options_set_uint(options, SPVC_COMPILER_OPTION_GLSL_VERSION, static_cast<unsigned>(TARGET_ES_VERSION));
     spvc_compiler_options_set_bool(options, SPVC_COMPILER_OPTION_GLSL_ES, SPVC_TRUE);
     spvc_compiler_options_set_bool(options, SPVC_COMPILER_OPTION_GLSL_ES_DEFAULT_FLOAT_PRECISION_HIGHP, SPVC_TRUE);
     spvc_compiler_options_set_bool(options, SPVC_COMPILER_OPTION_GLSL_ES_DEFAULT_INT_PRECISION_HIGHP, SPVC_TRUE);
@@ -1210,12 +1219,6 @@ std::string GLSLtoGLSLES_2(const char* glsl_code, GLenum glsl_type, uint essl_ve
 
     return_code = atomicCounterEmulated ? 1 : 0;
     return essl;
-}
-
-std::string GLSLtoGLSLES_1(const char* glsl_code, GLenum glsl_type, uint esversion, int& return_code) {
-    (void)glsl_code; (void)glsl_type; (void)esversion;
-    return_code = -1;
-    return "";
 }
 
 std::string GLSLtoGLSLES(const char* glsl_code, GLenum glsl_type, uint essl_version, uint glsl_version,
