@@ -633,7 +633,9 @@ void glTexImage2D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
           "%d,height: %d,border: %d,format: %s,type: %s, pixels: 0x%x",
           glEnumToString(target), level, glEnumToString(internalFormat), glEnumToString(internalFormat), width, height,
           border, glEnumToString(format), glEnumToString(type), pixels)
-    internal_convert(reinterpret_cast<GLenum*>(&internalFormat), &type, &format);
+    GLenum internalFormat_mut = (GLenum)internalFormat;
+    internal_convert(&internalFormat_mut, &type, &format);
+    internalFormat = (GLint)internalFormat_mut;
 
     LOG_D("GLES.glTexImage2D,target: %s,level: %d,internalFormat: %s->%s,width: "
           "%d,height: %d,border: %d,format: %s,type: %s, pixels: 0x%x",
@@ -703,7 +705,9 @@ void glTexImage3D(GLenum target, GLint level, GLint internalFormat, GLsizei widt
           "0x%x, height: %d, depth: %d, border: %d, format: 0x%x, type: %d",
           target, level, internalFormat, width, height, depth, border, format, type)
 
-    internal_convert(reinterpret_cast<GLenum*>(&internalFormat), &type, &format);
+    GLenum internalFormat_mut = (GLenum)internalFormat;
+    internal_convert(&internalFormat_mut, &type, &format);
+    internalFormat = (GLint)internalFormat_mut;
     GLenum rtarget = map_tex_target(target);
     if (rtarget == GL_PROXY_TEXTURE_3D) {
         int max1 = 4096;

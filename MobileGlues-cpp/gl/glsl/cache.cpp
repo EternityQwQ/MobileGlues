@@ -48,16 +48,16 @@ namespace {
 } // namespace
 
 array<uint8_t, 32> Cache::computeSHA256(const char* data) {
-    vector<uint8_t> input(reinterpret_cast<const uint8_t*>(data),
-                          reinterpret_cast<const uint8_t*>(data) + strlen(data));
+    const size_t len = strlen(data);
+    const uint64_t bit_length = len * 8;
+    // Pre-calculate padded size: len + 1 (0x80) + 8 (bit_length) rounded up to 64-byte block
+    const size_t padded_size = ((len + 9 + 63) / 64) * 64;
 
-    uint64_t bit_length = input.size() * 8;
-    input.push_back(0x80);
-    while ((input.size() % 64) != 56)
-        input.push_back(0x00);
-
+    vector<uint8_t> input(padded_size, 0);
+    memcpy(input.data(), data, len);
+    input[len] = 0x80;
     for (int i = 0; i < 8; ++i) {
-        input.push_back(static_cast<uint8_t>(bit_length >> (56 - i * 8)));
+        input[padded_size - 8 + i] = static_cast<uint8_t>(bit_length >> (56 - i * 8));
     }
 
     uint32_t h[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};

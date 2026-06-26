@@ -451,7 +451,7 @@ void* glMapBuffer(GLenum target, GLenum access) {
     }
     GLint buffer_size;
     GLES.glGetBufferParameteriv(target, GL_BUFFER_SIZE, &buffer_size);
-    if (buffer_size <= 0 || glGetError() != GL_NO_ERROR) {
+    if (buffer_size <= 0) {
         return nullptr;
     }
     GLbitfield flags = 0;
