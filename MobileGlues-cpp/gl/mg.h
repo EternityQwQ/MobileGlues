@@ -102,6 +102,10 @@ struct display_list_s {
 }
 #endif
 
-void prepareForDraw();
+void prepareForDrawImpl();
+
+// Inline check avoids function call overhead on the hot draw path
+// when emulate_texture_buffer is false (the default ES 3.2 case).
+#define PREPARE_FOR_DRAW() do { if (hardware->emulate_texture_buffer) [[unlikely]] prepareForDrawImpl(); } while(0)
 
 #endif // MOBILEGLUES_MG_H

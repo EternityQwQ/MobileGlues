@@ -57,7 +57,9 @@ void setupBufferTextureUniforms(GLuint program) {
 
     auto it = g_samplerCacheForSamplerBuffer.find(program);
     if (it == g_samplerCacheForSamplerBuffer.end()) {
-        auto& progSamplerInfo = g_samplerCacheForSamplerBuffer[program];
+        // Single emplace + iterator avoids redundant hash lookups
+        it = g_samplerCacheForSamplerBuffer.emplace(program, SamplerInfo{}).first;
+        auto& progSamplerInfo = it->second;
         GLint locWidth = GLES.glGetUniformLocation(program, "u_BufferTexWidth");
         GLint locHeight = GLES.glGetUniformLocation(program, "u_BufferTexHeight");
         if (locWidth == -1) {
@@ -67,7 +69,6 @@ void setupBufferTextureUniforms(GLuint program) {
 
         progSamplerInfo.locHeight = locHeight;
         progSamplerInfo.locWidth = locWidth;
-        progSamplerInfo.samplers.clear();
 
         GLint numUniforms = 0;
         GLES.glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &numUniforms);
@@ -86,7 +87,6 @@ void setupBufferTextureUniforms(GLuint program) {
                 progSamplerInfo.samplers.push_back(locSampler);
             }
         }
-        it = g_samplerCacheForSamplerBuffer.find(program);
     }
 
     auto& progSamplerInfo = it->second;
@@ -121,12 +121,11 @@ void setupBufferTextureUniforms(GLuint program) {
 
 // ============================================================================
 // Common draw preparation (called before every draw call)
+// In ES 3.2, emulate_texture_buffer is always false, so this function is
+// only called when hardware emulation is explicitly enabled.
 // ============================================================================
 
-void prepareForDraw() {
-    // Fast path: if texture buffer emulation is disabled, nothing to do
-    if (!hardware->emulate_texture_buffer) [[likely]] return;
-
+void prepareForDrawImpl() {
     // Fast path: skip if same program already prepared
     GLuint prog = gl_state->current_program;
     if (prog == g_lastPreparedProgram) [[likely]] return;
@@ -136,15 +135,11 @@ void prepareForDraw() {
     setupBufferTextureUniforms(prog);
 }
 
-// ============================================================================
-// Native draw calls (ES 3.2 directly supports)
-// ============================================================================
-
 // --- glDrawElements (native) ---
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices) {
     LOG()
     LOG_D("glDrawElements, mode: %d, count: %d, type: %d, indices: %p", mode, count, type, indices)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawElements(mode, count, type, indices);
     CHECK_GL_ERROR
 }
@@ -154,7 +149,7 @@ void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void
     LOG()
     LOG_D("glDrawElementsInstanced, mode: %d, count: %d, type: %d, indices: %p, primcount: %d", mode, count, type,
           indices, primcount)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawElementsInstanced(mode, count, type, indices, primcount);
     CHECK_GL_ERROR
 }
@@ -164,7 +159,7 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
     LOG()
     LOG_D("glDrawElementsBaseVertex, mode: %d, count: %d, type: %d, indices: %p, basevertex: %d", mode, count, type,
           indices, basevertex);
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
     CHECK_GL_ERROR
 }
@@ -173,7 +168,7 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
 void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
     LOG()
     LOG_D("glDrawArrays, mode: %d, first: %d, count: %d", mode, first, count)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawArrays(mode, first, count);
     CHECK_GL_ERROR
 }
@@ -182,7 +177,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
 void glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount) {
     LOG()
     LOG_D("glDrawArraysInstanced, mode: %d, first: %d, count: %d, instancecount: %d", mode, first, count, instancecount)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawArraysInstanced(mode, first, count, instancecount);
     CHECK_GL_ERROR
 }
@@ -192,7 +187,7 @@ void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, G
     LOG()
     LOG_D("glDrawRangeElements, mode: %d, start: %d, end: %d, count: %d, type: %d, indices: %p", mode, start, end,
           count, type, indices)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawRangeElements(mode, start, end, count, type, indices);
     CHECK_GL_ERROR
 }
@@ -201,7 +196,7 @@ void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, G
 void glDrawArraysIndirect(GLenum mode, const void* indirect) {
     LOG()
     LOG_D("glDrawArraysIndirect, mode: %d, indirect: %p", mode, indirect)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawArraysIndirect(mode, indirect);
     CHECK_GL_ERROR
 }
@@ -210,7 +205,7 @@ void glDrawArraysIndirect(GLenum mode, const void* indirect) {
 void glDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect) {
     LOG()
     LOG_D("glDrawElementsIndirect, mode: %d, type: %d, indirect: %p", mode, type, indirect)
-    prepareForDraw();
+    PREPARE_FOR_DRAW();
     GLES.glDrawElementsIndirect(mode, type, indirect);
     CHECK_GL_ERROR
 }

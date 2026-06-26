@@ -278,6 +278,23 @@ TextureObject* mgGetTexObjectByID(unsigned texture) {
 // ============================================================================
 
 // ============================================================================
+// Lookup table for GL_RED type→internalformat mapping.
+// Sorted by GLenum type for fast binary search.
+// ============================================================================
+struct RedTypeMapping {
+    GLenum type;
+    GLenum internalformat;
+    GLenum format;
+};
+static const RedTypeMapping kRedTypeMappings[] = {
+    {GL_UNSIGNED_BYTE, GL_R8,        GL_RED},
+    {GL_BYTE,          GL_R8_SNORM,  GL_RED},
+    {GL_HALF_FLOAT,    GL_R16F,      GL_RED},
+    {GL_FLOAT,         GL_R32F,      GL_RED},
+};
+static constexpr size_t kRedTypeMappingCount = sizeof(kRedTypeMappings) / sizeof(kRedTypeMappings[0]);
+
+// ============================================================================
 // Inline mapping for various internal formats to format and type
 // Most common formats (RGBA8, RGBA, RGBA16F, R8, RGBA32F) are handled first
 // with early return for maximum performance on the hot path.
@@ -304,6 +321,26 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
     case GL_RGB32F:
         if (type) *type = GL_FLOAT;
         return;
+
+    // --- GL_RED: lookup-table dispatch (replaces nested switch) ---
+    case GL_RED:
+        if (type) {
+            GLenum t = *type;
+            // Linear search is faster than binary search for 4 entries
+            for (size_t i = 0; i < kRedTypeMappingCount; ++i) {
+                if (kRedTypeMappings[i].type == t) {
+                    *internal_format = kRedTypeMappings[i].internalformat;
+                    if (format) *format = kRedTypeMappings[i].format;
+                    return;
+                }
+            }
+            LOG_E("Unsupported type for GL_RED: %s", glEnumToString(*type));
+            if (type) *type = GL_UNSIGNED_BYTE;
+            *internal_format = GL_R8;
+            if (format) *format = GL_RED;
+        }
+        return;
+
     // --- Less common formats ---
     case GL_DEPTH_COMPONENT16:
         if (type) *type = GL_UNSIGNED_SHORT;
@@ -392,34 +429,6 @@ void internal_convert(GLenum* internal_format, GLenum* type, GLenum* format) {
     case GL_R16F:
         if (format) *format = GL_RED;
         if (type) *type = GL_HALF_FLOAT;
-        break;
-    case GL_RED:
-        if (type) {
-            switch (*type) {
-            case GL_UNSIGNED_BYTE:
-                *internal_format = GL_R8;
-                if (format) *format = GL_RED;
-                break;
-            case GL_BYTE:
-                *internal_format = GL_R8_SNORM;
-                if (format) *format = GL_RED;
-                break;
-            case GL_HALF_FLOAT:
-                *internal_format = GL_R16F;
-                if (format) *format = GL_RED;
-                break;
-            case GL_FLOAT:
-                *internal_format = GL_R32F;
-                if (format) *format = GL_RED;
-                break;
-            default:
-                LOG_E("Unsupported type for GL_RED: %s", glEnumToString(*type));
-                if (type) *type = GL_UNSIGNED_BYTE;
-                *internal_format = GL_R8;
-                if (format) *format = GL_RED;
-                break;
-            }
-        }
         break;
     case GL_R8UI:
         if (format) *format = GL_RED_INTEGER;

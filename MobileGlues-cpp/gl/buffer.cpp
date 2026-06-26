@@ -165,29 +165,6 @@ size_t get_buffer_data_size(GLuint buffer) {
 // Buffer Binding Helpers
 // ============================================================================
 
-// Sorted key-value pair for target → index lookup
-struct BufTargetEntry {
-    GLenum key;
-    int value;
-};
-
-static const BufTargetEntry kBufTargetToIndex[] = {
-    {GL_ARRAY_BUFFER,             BI_ARRAY_BUFFER},
-    {GL_ELEMENT_ARRAY_BUFFER,     BI_ELEMENT_ARRAY},
-    {GL_PIXEL_PACK_BUFFER,        BI_PIXEL_PACK},
-    {GL_PIXEL_UNPACK_BUFFER,      BI_PIXEL_UNPACK},
-    {GL_UNIFORM_BUFFER,           BI_UNIFORM_BUFFER},
-    {GL_TRANSFORM_FEEDBACK_BUFFER,BI_TRANSFORM_FEEDBACK},
-    {GL_COPY_READ_BUFFER,         BI_COPY_READ},
-    {GL_COPY_WRITE_BUFFER,        BI_COPY_WRITE},
-    {GL_DRAW_INDIRECT_BUFFER,     BI_DRAW_INDIRECT},
-    {GL_SHADER_STORAGE_BUFFER,    BI_SHADER_STORAGE},
-    {GL_DISPATCH_INDIRECT_BUFFER, BI_DISPATCH_INDIRECT},
-    {GL_ATOMIC_COUNTER_BUFFER,    BI_ATOMIC_COUNTER},
-};
-static constexpr size_t kBufTargetEntryCount = sizeof(kBufTargetToIndex) / sizeof(kBufTargetToIndex[0]);
-
-// Binary search helper
 static inline int binding_target_to_index(GLenum target) {
     switch (target) {
     case GL_ARRAY_BUFFER:             return BI_ARRAY_BUFFER;
@@ -211,23 +188,6 @@ void set_bound_buffer_by_target(GLenum target, GLuint buffer) {
     if (idx >= 0) g_bound_buffers_arr[idx] = buffer;
 }
 
-// Sorted key-value pair for binding query → target index
-static const BufTargetEntry kBufBindingQueryToIndex[] = {
-    {GL_ARRAY_BUFFER_BINDING,              BI_ARRAY_BUFFER},
-    {GL_ELEMENT_ARRAY_BUFFER_BINDING,      BI_ELEMENT_ARRAY},
-    {GL_PIXEL_PACK_BUFFER_BINDING,         BI_PIXEL_PACK},
-    {GL_PIXEL_UNPACK_BUFFER_BINDING,       BI_PIXEL_UNPACK},
-    {GL_UNIFORM_BUFFER_BINDING,            BI_UNIFORM_BUFFER},
-    {GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, BI_TRANSFORM_FEEDBACK},
-    {GL_COPY_READ_BUFFER_BINDING,          BI_COPY_READ},
-    {GL_COPY_WRITE_BUFFER_BINDING,         BI_COPY_WRITE},
-    {GL_DRAW_INDIRECT_BUFFER_BINDING,      BI_DRAW_INDIRECT},
-    {GL_SHADER_STORAGE_BUFFER_BINDING,     BI_SHADER_STORAGE},
-    {GL_DISPATCH_INDIRECT_BUFFER_BINDING,  BI_DISPATCH_INDIRECT},
-    {GL_ATOMIC_COUNTER_BUFFER_BINDING,     BI_ATOMIC_COUNTER},
-};
-static constexpr size_t kBufBindingQueryCount = sizeof(kBufBindingQueryToIndex) / sizeof(kBufBindingQueryToIndex[0]);
-
 GLuint find_bound_buffer(GLenum key) {
     // Special case: ELEMENT_ARRAY_BUFFER uses VAO tracking
     if (key == GL_ELEMENT_ARRAY_BUFFER_BINDING) {
@@ -248,23 +208,6 @@ GLuint find_bound_buffer(GLenum key) {
     default:                                   return 0;
     }
 }
-
-// Sorted key-value pair for target → binding query
-static const BufTargetEntry kBufTargetToBindingQuery[] = {
-    {GL_ARRAY_BUFFER,              GL_ARRAY_BUFFER_BINDING},
-    {GL_ELEMENT_ARRAY_BUFFER,      GL_ELEMENT_ARRAY_BUFFER_BINDING},
-    {GL_PIXEL_PACK_BUFFER,         GL_PIXEL_PACK_BUFFER_BINDING},
-    {GL_PIXEL_UNPACK_BUFFER,       GL_PIXEL_UNPACK_BUFFER_BINDING},
-    {GL_UNIFORM_BUFFER,            GL_UNIFORM_BUFFER_BINDING},
-    {GL_TRANSFORM_FEEDBACK_BUFFER, GL_TRANSFORM_FEEDBACK_BUFFER_BINDING},
-    {GL_COPY_READ_BUFFER,          GL_COPY_READ_BUFFER_BINDING},
-    {GL_COPY_WRITE_BUFFER,         GL_COPY_WRITE_BUFFER_BINDING},
-    {GL_DRAW_INDIRECT_BUFFER,      GL_DRAW_INDIRECT_BUFFER_BINDING},
-    {GL_SHADER_STORAGE_BUFFER,     GL_SHADER_STORAGE_BUFFER_BINDING},
-    {GL_DISPATCH_INDIRECT_BUFFER,  GL_DISPATCH_INDIRECT_BUFFER_BINDING},
-    {GL_ATOMIC_COUNTER_BUFFER,     GL_ATOMIC_COUNTER_BUFFER_BINDING},
-};
-static constexpr size_t kBufTargetQueryCount = sizeof(kBufTargetToBindingQuery) / sizeof(kBufTargetToBindingQuery[0]);
 
 static GLenum get_binding_query(GLenum target) {
     switch (target) {
