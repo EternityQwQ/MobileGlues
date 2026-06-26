@@ -128,6 +128,7 @@ static bool g_indirect_cmds_inited = false;
 static GLsizei g_cmdbufsize = 0;
 static GLuint g_indirectbuffer = 0;
 static GLuint prevIndirectBuffer = 0;
+static constexpr GLsizei kDefaultIndirectCmdBufSize = 256;
 
 void prepare_indirect_buffer(const GLsizei* counts, GLenum type, const void* const* indices, GLsizei primcount,
                              const GLint* basevertex) {
@@ -136,7 +137,7 @@ void prepare_indirect_buffer(const GLsizei* counts, GLenum type, const void* con
     if (!g_indirect_cmds_inited) {
         GLES.glGenBuffers(1, &g_indirectbuffer);
         GLES.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, g_indirectbuffer);
-        g_cmdbufsize = 1;
+        g_cmdbufsize = kDefaultIndirectCmdBufSize;
         GLES.glBufferData(GL_DRAW_INDIRECT_BUFFER, g_cmdbufsize * sizeof(draw_elements_indirect_command_t), NULL,
                           GL_DYNAMIC_DRAW);
         g_indirect_cmds_inited = true;

@@ -103,7 +103,6 @@ GLboolean has_buffer(GLuint key) {
 void modify_buffer(GLuint key, GLuint value) {
     if (key >= g_gen_buffers.size()) [[unlikely]] ensure_buffer_capacity(key);
     g_gen_buffers[key] = value;
-    if (key >= g_gen_buffer_exists.size()) [[unlikely]] g_gen_buffer_exists.resize(key + 1, 0);
     g_gen_buffer_exists[key] = 1;
 }
 
@@ -121,9 +120,11 @@ GLuint find_real_buffer(GLuint key) {
     return 0;
 }
 
-// Combined lookup: returns {real_buffer, exists} in a single bounds check
+// Combined lookup: returns {real_buffer, exists} in a single bounds check.
+// g_gen_buffers and g_gen_buffer_exists are always resized together,
+// so checking one is sufficient for both.
 static inline std::pair<GLuint, bool> find_real_buffer_with_exists(GLuint key) {
-    if (key < g_gen_buffers.size() && key < g_gen_buffer_exists.size() && g_gen_buffer_exists[key]) [[likely]]
+    if (key < g_gen_buffers.size() && g_gen_buffer_exists[key]) [[likely]]
         return {g_gen_buffers[key], true};
     return {0, false};
 }
@@ -313,7 +314,6 @@ GLboolean has_array(GLuint key) {
 void modify_array(GLuint key, GLuint value) {
     if (key >= g_gen_arrays.size()) ensure_array_capacity(key);
     g_gen_arrays[key] = value;
-    if (key >= g_gen_array_exists.size()) g_gen_array_exists.resize(key + 1, 0);
     g_gen_array_exists[key] = 1;
 }
 

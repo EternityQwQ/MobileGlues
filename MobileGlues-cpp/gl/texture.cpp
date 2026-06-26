@@ -571,12 +571,13 @@ void glBindTexture(GLenum target, GLuint texture) {
     }
     CHECK_GL_ERROR_NO_INIT
 
+    const int currentUnitIndex = GetCurrentTextureUnitIndex();
+
     // Track GL_TEXTURE_2D binding per-unit to avoid glGetIntegerv GPU queries
     if (target == GL_TEXTURE_2D) {
-        g_tracked_tex2d_binding[GetCurrentTextureUnitIndex()] = texture;
+        g_tracked_tex2d_binding[currentUnitIndex] = texture;
     }
 
-    int currentUnitIndex = GetCurrentTextureUnitIndex();
     auto& currentUnit = GetTextureUnit(currentUnitIndex);
     auto targetR = ConvertGLEnumToTextureTarget(target);
     if (targetR == TextureTarget::UNKNWON) {
