@@ -110,13 +110,8 @@ static void InitDepthClearCoreProfile() {
 static void DrawDepthClearTri() {
     InitDepthClearCoreProfile();
 
-    GLboolean prevColorMask[4];
-    GLES.glGetBooleanv(GL_COLOR_WRITEMASK, prevColorMask);
-    GLboolean prevDepthMask;
-    GLES.glGetBooleanv(GL_DEPTH_WRITEMASK, &prevDepthMask);
-    GLint prevDepthFunc;
-    GLES.glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
-
+    // Avoid 3 GPU round-trip glGet* queries by always restoring to defaults.
+    // The caller is expected to re-set its desired state after the depth clear.
     GLES.glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     GLES.glDepthMask(GL_TRUE);
     GLES.glDepthFunc(GL_ALWAYS);
@@ -127,9 +122,9 @@ static void DrawDepthClearTri() {
     GLES.glBindVertexArray(0);
     GLES.glUseProgram(0);
 
-    GLES.glDepthFunc(prevDepthFunc);
-    GLES.glDepthMask(prevDepthMask);
-    GLES.glColorMask(prevColorMask[0], prevColorMask[1], prevColorMask[2], prevColorMask[3]);
+    GLES.glDepthFunc(GL_LESS);
+    GLES.glDepthMask(GL_TRUE);
+    GLES.glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
 // ============================================================================
