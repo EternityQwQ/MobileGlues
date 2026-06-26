@@ -34,8 +34,6 @@
 #include "../gles/loader.h"
 #include "mg.h"
 #include "GL/gl.h"
-#include <regex>
-#include <cstring>
 #include <string>
 
 #define DEBUG 0
@@ -43,80 +41,132 @@
 // ============================================================================
 // Section: Shader Type Detection Helpers
 //
-// These helpers analyze GLSL source code to determine whether a shader
-// is already ES-compatible (direct pass-through) or requires conversion.
-// They also detect unsupported shader types (geometry/tessellation).
-// All functions use strstr() on raw C strings to avoid std::string copies.
+// Single-pass GLSL source analysis. Instead of multiple strstr() calls
+// (up to 20+ per shader source), we scan once and check all patterns
+// simultaneously. This avoids O(n * m) overhead where n = source length
+// and m = number of patterns.
 // ============================================================================
 
-// Fast strstr-based helpers (no std::string allocation)
-static inline bool has_str(const char* haystack, const char* needle) {
-    return strstr(haystack, needle) != nullptr;
+// ---------------------------------------------------------------------------
+// Result of single-pass shader source analysis
+// ---------------------------------------------------------------------------
+struct ShaderSourceInfo {
+    bool is_essl;          // true if #version 100/300/310/320
+    bool is_geometry;      // geometry shader keywords found
+    bool is_tessellation;  // tessellation shader keywords found
+    bool is_compute;       // compute shader keywords found
+};
+
+// ---------------------------------------------------------------------------
+// Single-pass scan of GLSL source for version + shader type detection.
+// Scans the entire source string once, checking for all patterns.
+// ---------------------------------------------------------------------------
+static ShaderSourceInfo scanShaderSource(const char* code) {
+    ShaderSourceInfo info = {};
+    const char* p = code;
+
+    while (*p) {
+        // Skip whitespace and comments efficiently
+        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+        if (!*p) break;
+
+        // Check for #version directive (only at/near the beginning matters)
+        if (!info.is_essl && *p == '#') {
+            const char* v = p + 1;
+            while (*v == ' ' || *v == '\t') v++;
+            if (v[0] == 'v' && v[1] == 'e' && v[2] == 'r' && v[3] == 's' && v[4] == 'i' && v[5] == 'o' && v[6] == 'n') {
+                v += 7;
+                while (*v == ' ' || *v == '\t') v++;
+                int ver = 0;
+                while (*v >= '0' && *v <= '9') { ver = ver * 10 + (*v - '0'); v++; }
+                info.is_essl = (ver == 100 || ver == 300 || ver == 310 || ver == 320);
+            }
+        }
+
+        // Check for shader-type-defining keywords
+        // We use multi-character prefix matching to reduce false positives
+        switch (*p) {
+        case 'E':
+            if (!info.is_geometry) {
+                if (p[1] == 'm' && p[2] == 'i' && p[3] == 't' && p[4] == 'V' && p[5] == 'e' && p[6] == 'r' && p[7] == 't' && p[8] == 'e' && p[9] == 'x')
+                    info.is_geometry = true;
+                else if (p[1] == 'n' && p[2] == 'd' && p[3] == 'P' && p[4] == 'r' && p[5] == 'i' && p[6] == 'm' && p[7] == 'i' && p[8] == 't' && p[9] == 'i' && p[10] == 'v' && p[11] == 'e')
+                    info.is_geometry = true;
+            }
+            break;
+        case 'g':
+            if (!info.is_tessellation && p[1] == 'l' && p[2] == '_') {
+                if (p[3] == 'T' && p[4] == 'e' && p[5] == 's' && p[6] == 's' && (p[7] == 'L' || p[7] == 'C'))
+                    info.is_tessellation = true;
+            }
+            if (!info.is_compute && p[1] == 'l' && p[2] == '_') {
+                if ((p[3] == 'W' && p[4] == 'o' && p[5] == 'r' && p[6] == 'k' && p[7] == 'G') ||
+                    (p[3] == 'L' && p[4] == 'o' && p[5] == 'c' && p[6] == 'a' && p[7] == 'l') ||
+                    (p[3] == 'G' && p[4] == 'l' && p[5] == 'o' && p[6] == 'b' && p[7] == 'a' && p[8] == 'l') ||
+                    (p[3] == 'N' && p[4] == 'u' && p[5] == 'm' && p[6] == 'W' && p[7] == 'o' && p[8] == 'r' && p[9] == 'k'))
+                    info.is_compute = true;
+            }
+            break;
+        case 'l':
+            if (!info.is_geometry && p[1] == 'a' && p[2] == 'y' && p[3] == 'o' && p[4] == 'u' && p[5] == 't' && p[6] == '(') {
+                p += 7;
+                while (*p == ' ' || *p == '\t') p++;
+                if (p[0] == 't' && p[1] == 'r' && p[2] == 'i') info.is_geometry = true;
+                else if (p[0] == 'p' && p[1] == 'o' && p[2] == 'i' && p[3] == 'n' && p[4] == 't' && p[5] == 's') info.is_geometry = true;
+                else if (p[0] == 'l' && p[1] == 'i' && p[2] == 'n' && p[3] == 'e') info.is_geometry = true;
+                else if (p[0] == 'q' && p[1] == 'u' && p[2] == 'a' && p[3] == 'd' && p[4] == 's') info.is_geometry = true;
+                else if (p[0] == 'i' && p[1] == 's' && p[2] == 'o' && p[3] == 'l' && p[4] == 'i' && p[5] == 'n' && p[6] == 'e' && p[7] == 's') info.is_geometry = true;
+                continue;
+            }
+            if (!info.is_compute && p[1] == 'a' && p[2] == 'y' && p[3] == 'o' && p[4] == 'u' && p[5] == 't' && p[6] == '(') {
+                p += 7;
+                while (*p == ' ' || *p == '\t') p++;
+                if (p[0] == 'l' && p[1] == 'o' && p[2] == 'c' && p[3] == 'a' && p[4] == 'l' && p[5] == '_' && p[6] == 's' && p[7] == 'i' && p[8] == 'z' && p[9] == 'e' && p[10] == '_')
+                    info.is_compute = true;
+                continue;
+            }
+            if (!info.is_tessellation && p[1] == 'a' && p[2] == 'y' && p[3] == 'o' && p[4] == 'u' && p[5] == 't' && p[6] == '(') {
+                p += 7;
+                while (*p == ' ' || *p == '\t') p++;
+                if (p[0] == 'v' && p[1] == 'e' && p[2] == 'r' && p[3] == 't' && p[4] == 'i' && p[5] == 'c' && p[6] == 'e' && p[7] == 's')
+                    info.is_tessellation = true;
+                continue;
+            }
+            break;
+        case 'm':
+            if (!info.is_geometry && p[1] == 'a' && p[2] == 'x' && p[3] == '_' && p[4] == 'v' && p[5] == 'e' && p[6] == 'r' && p[7] == 't' && p[8] == 'i' && p[9] == 'c' && p[10] == 'e' && p[11] == 's')
+                info.is_geometry = true;
+            break;
+        case 'p':
+            if (!info.is_tessellation && p[1] == 'a' && p[2] == 't' && p[3] == 'c' && p[4] == 'h') {
+                // "patch" is 5 chars, check it's not part of a longer word
+                char next = p[5];
+                if (next == ' ' || next == '\t' || next == '\n' || next == '\r' || next == ';' || next == '(' || next == '\0')
+                    info.is_tessellation = true;
+            }
+            break;
+        }
+        p++;
+    }
+    return info;
 }
 
 // ---------------------------------------------------------------------------
 // Determine if shader is already ES-compatible (direct passthrough)
 // ESSL versions recognized: 100 (ES 1.0), 300 (ES 3.0), 310 (ES 3.1), 320 (ES 3.2)
 // ---------------------------------------------------------------------------
-static bool is_direct_shader(const char* glsl_code) {
-    int version = getGLSLVersion(glsl_code);
-    return (version == 100 || version == 300 || version == 310 || version == 320);
-}
-
-// ---------------------------------------------------------------------------
-// Determine if shader is a geometry shader based on content analysis
-// Geometry shaders are NOT supported by ES 3.2 — detected for rejection
-// ---------------------------------------------------------------------------
-static bool is_geometry_shader(const char* glsl_code) {
-    // Check for max_vertices first (most unique identifier)
-    if (has_str(glsl_code, "max_vertices")) return true;
-    if (has_str(glsl_code, "EmitVertex()")) return true;
-    if (has_str(glsl_code, "EndPrimitive()")) return true;
-    // Check layout qualifiers
-    if (has_str(glsl_code, "layout(triangles)")) return true;
-    if (has_str(glsl_code, "layout(triangle_strip)")) return true;
-    if (has_str(glsl_code, "layout(points)")) return true;
-    if (has_str(glsl_code, "layout(lines)")) return true;
-    if (has_str(glsl_code, "layout(line_strip)")) return true;
-    if (has_str(glsl_code, "layout(quads)")) return true;
-    if (has_str(glsl_code, "layout(isolines)")) return true;
-    return false;
-}
-
-// ---------------------------------------------------------------------------
-// Determine if shader is a tessellation shader based on content analysis
-// Tessellation shaders are NOT supported by ES 3.2 — detected for rejection
-// ---------------------------------------------------------------------------
-static bool is_tessellation_shader(const char* glsl_code) {
-    if (has_str(glsl_code, "gl_TessLevel")) return true;
-    if (has_str(glsl_code, "gl_TessCoord")) return true;
-    if (has_str(glsl_code, "layout(vertices")) return true;
-    if (has_str(glsl_code, "patch")) return true;
-    return false;
-}
-
-// ---------------------------------------------------------------------------
-// Determine if shader is a compute shader based on content analysis
-// Compute shaders ARE supported by ES 3.2 — detected to identify shader type
-// ---------------------------------------------------------------------------
-static bool is_compute_shader(const char* glsl_code) {
-    if (has_str(glsl_code, "layout(local_size_x")) return true;
-    if (has_str(glsl_code, "gl_WorkGroupSize")) return true;
-    if (has_str(glsl_code, "gl_WorkGroupID")) return true;
-    if (has_str(glsl_code, "gl_LocalInvocationID")) return true;
-    if (has_str(glsl_code, "gl_GlobalInvocationID")) return true;
-    if (has_str(glsl_code, "gl_NumWorkGroups")) return true;
-    return false;
+static inline bool is_direct_shader(const ShaderSourceInfo& info) {
+    return info.is_essl;
 }
 
 // ---------------------------------------------------------------------------
 // Detect the actual shader type from GLSL source content
 // Used when the shader type was not explicitly set (e.g. Iris sets it later)
 // ---------------------------------------------------------------------------
-static GLenum detect_shader_type_from_source(const char* glsl_code) {
-    if (is_geometry_shader(glsl_code)) return GL_GEOMETRY_SHADER;
-    if (is_tessellation_shader(glsl_code)) return GL_TESS_EVALUATION_SHADER;
-    if (is_compute_shader(glsl_code)) return GL_COMPUTE_SHADER;
+static GLenum detect_shader_type_from_source(const ShaderSourceInfo& info) {
+    if (info.is_geometry) return GL_GEOMETRY_SHADER;
+    if (info.is_tessellation) return GL_TESS_EVALUATION_SHADER;
+    if (info.is_compute) return GL_COMPUTE_SHADER;
     return GL_FRAGMENT_SHADER; // default
 }
 
@@ -172,9 +222,13 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
 
     const char* raw_code = string[0];
 
-    // Step 2: If shader type is unknown (e.g. Iris sets it after source), detect from content
+    // Step 2: Single-pass scan of source for version + shader type detection
+    // (replaces 20+ strstr calls with one linear scan)
+    ShaderSourceInfo sourceInfo = scanShaderSource(raw_code);
+
+    // Step 3: If shader type is unknown (e.g. Iris sets it after source), detect from content
     if (shaderType == 0 || shaderType == GL_FRAGMENT_SHADER) {
-        GLenum detected = detect_shader_type_from_source(raw_code);
+        GLenum detected = detect_shader_type_from_source(sourceInfo);
         if (detected != GL_FRAGMENT_SHADER) {
             shaderType = detected;
             LOG_D("Detected shader type from source: %d", shaderType)
@@ -183,14 +237,14 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
 
     LOG_D("glShaderSource: shaderType=%d", shaderType)
 
-    // Step 3: Check if already an ES-compatible shader → native pass-through (avoids string copy)
-    if (is_direct_shader(raw_code)) {
+    // Step 4: Check if already an ES-compatible shader → native pass-through (avoids string copy)
+    if (is_direct_shader(sourceInfo)) {
         LOG_D("Direct ES shader (ESSL 100/300/310/320), passing through")
         GLES.glShaderSource(shader, count, string, length);
         return;
     }
 
-    // Step 4: Convert desktop GLSL → GLSL ES 3.2 (version 320) — only now we copy the string
+    // Step 5: Convert desktop GLSL → GLSL ES 3.2 (version 320) — only now we copy the string
     std::string glsl_code = raw_code;
     uint essl_version = 320; // target ES 3.2
     int return_code = -1;
@@ -205,7 +259,7 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
 
     LOG_D("Converted GLSL ES:\n%s", converted.c_str())
 
-    // Step 5: Set the converted GLSL ES source
+    // Step 6: Set the converted GLSL ES source
     const char* converted_code = converted.c_str();
     GLES.glShaderSource(shader, 1, &converted_code, nullptr);
 }

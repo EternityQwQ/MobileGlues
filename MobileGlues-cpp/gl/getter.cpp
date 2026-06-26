@@ -59,15 +59,20 @@ void glGetIntegerv(GLenum pname, GLint* params) {
         if (num_extensions == -1) {
             const GLubyte* ext_str = glGetString(GL_EXTENSIONS);
             if (ext_str) {
-                std::string copy_str((const char*)ext_str);
-                std::string token;
-                size_t pos = 0;
+                std::string ext((const char*)ext_str);
                 num_extensions = 0;
-                while ((pos = copy_str.find(' ')) != std::string::npos) {
+                // O(n) single-pass: find(char, offset) avoids the O(n²)
+                // erase(0, pos+1) that was used previously.
+                size_t offset = 0;
+                while (true) {
+                    size_t pos = ext.find(' ', offset);
+                    if (pos == std::string::npos) {
+                        if (offset < ext.size()) num_extensions++;
+                        break;
+                    }
                     num_extensions++;
-                    copy_str.erase(0, pos + 1);
+                    offset = pos + 1;
                 }
-                if (!copy_str.empty()) num_extensions++;
             } else {
                 num_extensions = 0;
             }
