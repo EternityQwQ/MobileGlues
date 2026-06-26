@@ -125,7 +125,7 @@ void setupBufferTextureUniforms(GLuint program) {
 // only called when hardware emulation is explicitly enabled.
 // ============================================================================
 
-static void prepareForDrawImpl() {
+void prepareForDrawImpl() {
     // Fast path: skip if same program already prepared
     GLuint prog = gl_state->current_program;
     if (prog == g_lastPreparedProgram) [[likely]] return;
