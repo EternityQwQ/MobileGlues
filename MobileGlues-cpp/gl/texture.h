@@ -28,6 +28,7 @@
 #define MOBILEGLUES_TEXTURE_H
 
 #include <memory>
+#include <unordered_set>
 
 #ifdef __cplusplus
 extern "C"
@@ -189,6 +190,10 @@ public:
     GLsizei width;
     GLsizei height;
     GLsizei depth;
+    // Reverse mapping: set of TextureBindingSlot pointers (as uintptr_t) that
+    // reference this object. Used by MarkTextureObjectForDeletion to avoid
+    // iterating all 32 units × 24 targets (768 slots).
+    std::unordered_set<uintptr_t> binding_slots;
 };
 
 TextureObject* mgGetTexObjectByTarget(GLenum target);

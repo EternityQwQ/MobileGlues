@@ -14,6 +14,7 @@
 #include "../gles/loader.h"
 #include "log.h"
 #include "mg.h"
+#include "shader.h"
 #include <GL/gl.h>
 #include <cstring>
 
@@ -54,6 +55,7 @@ void glDeleteProgram(GLuint program) {
 void glDeleteShader(GLuint shader) {
     LOG()
     LOG_D("glDeleteShader: shader=%d", shader)
+    invalidate_shader_cache(shader);
     GLES.glDeleteShader(shader);
     CHECK_GL_ERROR
 }

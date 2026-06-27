@@ -19,6 +19,9 @@ struct shader_t {
 
 extern struct shader_t shaderInfo;
 
+// Invalidate cached shader info when a shader is deleted
+void invalidate_shader_cache(GLuint shader);
+
 #ifdef __cplusplus
 extern "C"
 {
