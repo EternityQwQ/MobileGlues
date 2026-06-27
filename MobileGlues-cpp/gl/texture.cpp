@@ -180,7 +180,17 @@ public:
 
     explicit TextureBindingSlot(TargetEnum target) : m_target(target), m_boundObject(nullptr) {}
 
-    void Bind(TextureObject* object) { m_boundObject = object; }
+    void Bind(TextureObject* object) {
+        // Track reverse mapping: remove old binding, add new binding
+        if (m_boundObject && m_boundObject != object) {
+            m_boundObject->binding_slots.erase(
+                reinterpret_cast<uintptr_t>(this));
+        }
+        m_boundObject = object;
+        if (object) {
+            object->binding_slots.insert(reinterpret_cast<uintptr_t>(this));
+        }
+    }
 
     TextureObject* GetBoundObject() const { return m_boundObject; }
 
@@ -248,12 +258,12 @@ void MarkTextureObjectForDeletion(unsigned texture) {
 
     auto textureObject = BufferObjectsVec[texture];
 
-    for (auto& unit : TextureUnits) {
-        auto& bindingSlot = unit.GetBindingSlot(textureObject->target);
-        if (bindingSlot.GetBoundObject() == textureObject) {
-            bindingSlot.Bind(nullptr);
-        }
+    // Use reverse mapping to find and clear only the slots that reference this object
+    for (auto slotPtr : textureObject->binding_slots) {
+        auto* slot = reinterpret_cast<TextureBindingSlot*>(slotPtr);
+        slot->Bind(nullptr);
     }
+    textureObject->binding_slots.clear();
 
     BufferObjectsVec[texture] = nullptr;
     delete textureObject;
@@ -594,6 +604,13 @@ void glBindTexture(GLenum target, GLuint texture) {
         return;
     }
     auto& bindingSlot = currentUnit.GetBindingSlot(targetR);
+
+    // Unbind: skip TextureObject creation for texture 0
+    if (texture == 0) [[unlikely]] {
+        bindingSlot.Bind(nullptr);
+        return;
+    }
+
     auto textureObject = GetOrCreateTextureObject(texture);
     if (!textureObject) {
         LOG_W("glBindTexture: Failed to get or create texture object for ID %d, it may be not tracked", texture);

@@ -35,8 +35,32 @@
 #include "mg.h"
 #include "GL/gl.h"
 #include <string>
+#include <vector>
 
 #define DEBUG 0
+
+// ============================================================================
+// Shader type cache: avoids glGetShaderiv GPU round-trip on every glShaderSource
+// Indexed by shader object ID. Stores the shader type and whether the shader
+// source was previously verified as ESSL (to skip scanShaderSource on re-upload).
+// ============================================================================
+struct ShaderCacheEntry {
+    GLenum type = 0;         // cached shader type (GL_VERTEX_SHADER, etc.)
+    bool is_essl_verified = false; // true if source was confirmed ESSL
+};
+static std::vector<ShaderCacheEntry> g_shader_cache;
+
+static inline ShaderCacheEntry& get_shader_cache(GLuint shader) {
+    if (shader >= g_shader_cache.size()) [[unlikely]]
+        g_shader_cache.resize(shader + 1);
+    return g_shader_cache[shader];
+}
+
+void invalidate_shader_cache(GLuint shader) {
+    if (shader < g_shader_cache.size()) {
+        g_shader_cache[shader] = ShaderCacheEntry{};
+    }
+}
 
 // ============================================================================
 // Section: Shader Type Detection Helpers
@@ -211,42 +235,58 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
     LOG()
     LOG_D("glShaderSource hook, shader=%d, count=%d", shader, count)
 
-    // Step 1: Query the shader type (set during glCreateShader)
-    GLenum shaderType = GL_FRAGMENT_SHADER;
-    GLES.glGetShaderiv(shader, GL_SHADER_TYPE, (GLint*)&shaderType);
-
     if (count <= 0 || !string || !string[0]) {
+        // Invalidate cache when clearing source
+        auto& entry = get_shader_cache(shader);
+        entry.is_essl_verified = false;
         GLES.glShaderSource(shader, count, string, length);
         return;
     }
 
     const char* raw_code = string[0];
+    auto& cacheEntry = get_shader_cache(shader);
 
-    // Step 2: Single-pass scan of source for version + shader type detection
-    // (replaces 20+ strstr calls with one linear scan)
+    // Step 1: Get shader type — use cache to avoid glGetShaderiv GPU round-trip
+    GLenum shaderType = cacheEntry.type;
+    if (shaderType == 0) [[unlikely]] {
+        // First call: query type from GLES and cache it
+        GLES.glGetShaderiv(shader, GL_SHADER_TYPE, (GLint*)&shaderType);
+        cacheEntry.type = shaderType;
+    }
+
+    // Step 2: Fast path — if previously verified as ESSL, skip scan and pass through
+    if (cacheEntry.is_essl_verified) [[likely]] {
+        LOG_D("Cached ESSL shader %d, passing through directly", shader)
+        GLES.glShaderSource(shader, count, string, length);
+        return;
+    }
+
+    // Step 3: Single-pass scan of source for version + shader type detection
     ShaderSourceInfo sourceInfo = scanShaderSource(raw_code);
 
-    // Step 3: If shader type is unknown (e.g. Iris sets it after source), detect from content
+    // Step 4: If shader type is unknown (e.g. Iris sets it after source), detect from content
     if (shaderType == 0 || shaderType == GL_FRAGMENT_SHADER) {
         GLenum detected = detect_shader_type_from_source(sourceInfo);
         if (detected != GL_FRAGMENT_SHADER) {
             shaderType = detected;
+            cacheEntry.type = shaderType; // update cache with detected type
             LOG_D("Detected shader type from source: %d", shaderType)
         }
     }
 
     LOG_D("glShaderSource: shaderType=%d", shaderType)
 
-    // Step 4: Check if already an ES-compatible shader → native pass-through (avoids string copy)
+    // Step 5: Check if already an ES-compatible shader → native pass-through
     if (is_direct_shader(sourceInfo)) {
         LOG_D("Direct ES shader (ESSL 100/300/310/320), passing through")
+        cacheEntry.is_essl_verified = true; // mark as verified ESSL for future calls
         GLES.glShaderSource(shader, count, string, length);
         return;
     }
 
-    // Step 5: Convert desktop GLSL → GLSL ES 3.2 (version 320) — only now we copy the string
+    // Step 6: Convert desktop GLSL → GLSL ES 3.2 (version 320)
     std::string glsl_code = raw_code;
-    uint essl_version = 320; // target ES 3.2
+    uint essl_version = 320;
     int return_code = -1;
     std::string converted = GLSLtoGLSLES(glsl_code.c_str(), shaderType, essl_version, 0, return_code);
 
@@ -259,7 +299,7 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
 
     LOG_D("Converted GLSL ES:\n%s", converted.c_str())
 
-    // Step 6: Set the converted GLSL ES source
+    // Step 7: Set the converted GLSL ES source
     const char* converted_code = converted.c_str();
     GLES.glShaderSource(shader, 1, &converted_code, nullptr);
 }
