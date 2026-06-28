@@ -27,8 +27,12 @@ extern "C"
 {
 #endif
 
+    GLAPI GLAPIENTRY GLuint glCreateShader(GLenum type);
+
     GLAPI GLAPIENTRY void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string,
                                          const GLint* length);
+
+    GLAPI GLAPIENTRY void glCompileShader(GLuint shader);
 
     GLAPI GLAPIENTRY void glGetShaderiv(GLuint shader, GLenum pname, GLint* params);
 

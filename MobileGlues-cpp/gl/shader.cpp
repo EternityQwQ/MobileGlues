@@ -205,17 +205,41 @@ static GLenum detect_shader_type_from_source(const ShaderSourceInfo& info) {
 // ---------------------------------------------------------------------------
 // glCreateShader - Creates a shader object of the given type (native ES 3.2)
 // ES 3.2 natively supports: VERTEX_SHADER, FRAGMENT_SHADER, COMPUTE_SHADER
+// Also caches the shader type to avoid glGetShaderiv GPU round-trip later.
 // ---------------------------------------------------------------------------
-NATIVE_FUNCTION_HEAD(GLuint, glCreateShader, GLenum type)
-NATIVE_FUNCTION_END(GLuint, glCreateShader, type)
+GLuint glCreateShader(GLenum type) {
+    GLuint shader = GLES.glCreateShader(type);
+    if (shader != 0) {
+        auto& cacheEntry = get_shader_cache(shader);
+        cacheEntry.type = type;
+    }
+    return shader;
+}
 
 // ---------------------------------------------------------------------------
 // glCompileShader - Compiles a shader object (native ES 3.2)
 // The shader source must already be valid ESSL — conversion is handled by
 // glShaderSource before this function is called.
+// Logs compilation errors to help diagnose shader pack issues.
 // ---------------------------------------------------------------------------
-NATIVE_FUNCTION_HEAD(void, glCompileShader, GLuint shader)
-NATIVE_FUNCTION_END_NO_RETURN(void, glCompileShader, shader)
+void glCompileShader(GLuint shader) {
+    GLES.glCompileShader(shader);
+    GLint compiled = 0;
+    GLES.glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+        GLint infoLen = 0;
+        GLES.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
+        if (infoLen > 1) {
+            // Include shader type from cache for better diagnostics
+            GLenum shaderType = (shader < g_shader_cache.size()) ? g_shader_cache[shader].type : 0;
+            std::vector<char> log(infoLen);
+            GLES.glGetShaderInfoLog(shader, infoLen, nullptr, log.data());
+            LOG_I("[MobileGLES] Shader %d (type=%d) compilation failed: %s", shader, shaderType, log.data())
+        } else {
+            LOG_I("[MobileGLES] Shader %d compilation failed (no info log)", shader)
+        }
+    }
+}
 
 // ============================================================================
 // Section: GLSL-to-GLSL-ES Conversion Pipeline
@@ -264,13 +288,15 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
     // Step 3: Single-pass scan of source for version + shader type detection
     ShaderSourceInfo sourceInfo = scanShaderSource(raw_code);
 
-    // Step 4: If shader type is unknown (e.g. Iris sets it after source), detect from content
-    if (shaderType == 0 || shaderType == GL_FRAGMENT_SHADER) {
+    // Step 4: If shader type is GL_FRAGMENT_SHADER, check if source actually
+    // contains geometry/tessellation/compute shader keywords and correct the type.
+    // (shaderType is always cached by glCreateShader, so shaderType==0 is unreachable)
+    if (shaderType == GL_FRAGMENT_SHADER) {
         GLenum detected = detect_shader_type_from_source(sourceInfo);
         if (detected != GL_FRAGMENT_SHADER) {
             shaderType = detected;
             cacheEntry.type = shaderType; // update cache with detected type
-            LOG_D("Detected shader type from source: %d", shaderType)
+            LOG_I("[MobileGLES] Detected non-fragment shader type from source: %d", shaderType)
         }
     }
 
@@ -292,7 +318,7 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
 
     if (return_code < 0) {
         // Conversion failed — fall back to original source
-        LOG_E("GLSL conversion failed, passing through original")
+        LOG_I("[MobileGLES] GLSL conversion failed for shader %d (type=%d), passing through original desktop GLSL (will likely fail to compile on GLES)", shader, shaderType)
         GLES.glShaderSource(shader, count, string, length);
         return;
     }

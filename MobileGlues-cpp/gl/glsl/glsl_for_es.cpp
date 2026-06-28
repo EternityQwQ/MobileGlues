@@ -1007,7 +1007,7 @@ std::vector<unsigned int> glsl_to_spirv(GLenum shader_type, int glsl_version, co
                                         int& errc) {
     EShLanguage shader_language = glenum_to_esh_language(shader_type);
     if (shader_language == EShLangCount) {
-        LOG_D("GLSL type not supported! type=%d", shader_type)
+        LOG_E("[MobileGLES] GLSL type not supported! type=%d", shader_type)
         errc = -1;
         return {};
     }
@@ -1038,9 +1038,9 @@ std::vector<unsigned int> glsl_to_spirv(GLenum shader_type, int glsl_version, co
                 errc = 0;
                 return spirv;
             }
-            LOG_D("Shader Linking ERROR: %s", program.getInfoLog())
+            LOG_E("[MobileGLES] Shader Linking ERROR: %s", program.getInfoLog())
         }
-        LOG_D("GLSL Compiling ERROR (v%d): \n%s", target_gl_version, shader.getInfoLog())
+        LOG_E("[MobileGLES] GLSL Compiling ERROR (v%d): \n%s", target_gl_version, shader.getInfoLog())
     }
 
     // Strategy 2: Retry v450
@@ -1060,9 +1060,9 @@ std::vector<unsigned int> glsl_to_spirv(GLenum shader_type, int glsl_version, co
                 errc = 0;
                 return spirv;
             }
-            LOG_D("Shader Linking ERROR (retry): %s", program.getInfoLog())
+            LOG_E("[MobileGLES] Shader Linking ERROR (retry): %s", program.getInfoLog())
         }
-        LOG_D("GLSL Compiling ERROR (retry v450): \n%s", shader.getInfoLog())
+        LOG_E("[MobileGLES] GLSL Compiling ERROR (retry v450): \n%s", shader.getInfoLog())
     }
 
     // Strategy 3: Looser rules, no validation
@@ -1084,9 +1084,9 @@ std::vector<unsigned int> glsl_to_spirv(GLenum shader_type, int glsl_version, co
                 errc = 0;
                 return spirv;
             }
-            LOG_D("Shader Linking ERROR (loose): %s", program.getInfoLog())
+            LOG_E("[MobileGLES] Shader Linking ERROR (loose): %s", program.getInfoLog())
         }
-        LOG_D("GLSL Compiling ERROR (loose): \n%s", shader.getInfoLog())
+        LOG_E("[MobileGLES] GLSL Compiling ERROR (loose): \n%s", shader.getInfoLog())
     }
 
     errc = -1;
@@ -1107,13 +1107,13 @@ std::string spirv_to_essl(std::vector<unsigned int> spirv, uint essl_version, GL
     LOG_D("spirv_code.size(): %zu", spirv.size())
 
     if (spvc_context_create(&context) != SPVC_SUCCESS) {
-        LOG_E("spirv-cross: Failed to create context")
+        LOG_I("[MobileGLES] spirv-cross: Failed to create context")
         errc = -1;
         return "";
     }
 
     if (spvc_context_parse_spirv(context, spirv.data(), spirv.size(), &ir) != SPVC_SUCCESS) {
-        LOG_E("spirv-cross: Failed to parse SPIR-V: %s", spvc_context_get_last_error_string(context))
+        LOG_I("[MobileGLES] spirv-cross: Failed to parse SPIR-V: %s", spvc_context_get_last_error_string(context))
         spvc_context_destroy(context);
         errc = -1;
         return "";
@@ -1121,7 +1121,7 @@ std::string spirv_to_essl(std::vector<unsigned int> spirv, uint essl_version, GL
 
     if (spvc_context_create_compiler(context, SPVC_BACKEND_GLSL, ir, SPVC_CAPTURE_MODE_TAKE_OWNERSHIP,
                                      &compiler_glsl) != SPVC_SUCCESS) {
-        LOG_E("spirv-cross: Failed to create compiler: %s", spvc_context_get_last_error_string(context))
+        LOG_I("[MobileGLES] spirv-cross: Failed to create compiler: %s", spvc_context_get_last_error_string(context))
         spvc_context_destroy(context);
         errc = -1;
         return "";
@@ -1142,14 +1142,14 @@ std::string spirv_to_essl(std::vector<unsigned int> spirv, uint essl_version, GL
     spvc_compiler_install_compiler_options(compiler_glsl, options);
 
     if (spvc_compiler_compile(compiler_glsl, &result) != SPVC_SUCCESS) {
-        LOG_E("spirv-cross: Compilation failed: %s", spvc_context_get_last_error_string(context));
+        LOG_I("[MobileGLES] spirv-cross: Compilation failed: %s", spvc_context_get_last_error_string(context));
         spvc_context_destroy(context);
         errc = -1;
         return "";
     }
 
     if (!result) {
-        LOG_E("Error: unexpected error in spirv-cross.")
+        LOG_I("[MobileGLES] Error: unexpected error in spirv-cross.")
         spvc_context_destroy(context);
         errc = -1;
         return "";

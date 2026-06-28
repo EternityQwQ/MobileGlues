@@ -99,7 +99,7 @@ void glLinkProgram(GLuint program) {
         if (infoLogLength > 1) {
             char* infoLog = new char[infoLogLength];
             GLES.glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog);
-            LOG_E("glLinkProgram FAILED: %s", infoLog)
+            LOG_I("[MobileGLES] glLinkProgram FAILED: %s", infoLog)
             delete[] infoLog;
         }
     } else {
@@ -120,7 +120,7 @@ void glValidateProgram(GLuint program) {
         if (infoLogLength > 1) {
             char* infoLog = new char[infoLogLength];
             GLES.glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog);
-            LOG_E("glValidateProgram FAILED: %s", infoLog)
+            LOG_I("[MobileGLES] glValidateProgram FAILED: %s", infoLog)
             delete[] infoLog;
         }
     }
