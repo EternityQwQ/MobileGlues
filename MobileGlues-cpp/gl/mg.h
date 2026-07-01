@@ -1,111 +1,161 @@
 // MobileGlues - gl/mg.h
+// State manager header: backward-compatible wrappers around GLStateManager.
+// All old extern declarations and macros are mapped to GLStateManager methods.
+//
 // Copyright (c) 2025-2026 MobileGL-Dev
 // Licensed under the GNU Lesser General Public License v2.1:
 //   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
 // SPDX-License-Identifier: LGPL-2.1-only
 // End of Source File Header
 
-#ifndef MOBILEGLUES_MG_H
-#define MOBILEGLUES_MG_H
+#pragma once
 
-typedef unsigned int uint;
-
-#include <cstring>
-#include <cstdlib>
-#include <malloc.h>
-
-#ifdef __ANDROID__
-#include <android/log.h>
-#endif
-
-#include <GL/gl.h>
+#include "state.h"
 #include "../gles/gles.h"
-#include "log.h"
-#include "../gles/loader.h"
-#include "../includes.h"
-#include "glsl/glsl_for_es.h"
-#include "../config/config.h"
+#include "glext.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+// Include the loader handle extern (defined in gles/loader.cpp)
+extern void* g_loader_handle;
 
 // ============================================================================
-// MobileGlues Architecture for OpenGL ES 3.2
-//
-// Rule:
-//  - OpenGL ES 3.2 natively supports: Direct pass-through (no CPU emulation)
-//  - OpenGL ES 3.2 does NOT support: CPU emulation / stub
+// Backward-compatible #define macros for old code
 // ============================================================================
 
-// Display list emulation state
-struct display_list_s {
-    bool is_compiled;
-    void* commands;  // TODO: command buffer
-    size_t cmd_size;
-};
+// Old state variable aliases (pointer-style for backward compat)
+#define gl_state         (&GLState)
+#define hardware         (&GLState)
+#define proxy_width      proxyWidth
+#define proxy_height     proxyHeight
+#define proxy_intformat  proxyInternalFormat
+#define current_program  currentProgram
+#define current_tex_unit currentTexUnit
+#define current_draw_fbo GLState.currentDrawFBO
+#define current_read_fbo GLState.framebuffer.readFBO
+#define is_draw_call     GLState.isDrawCall
 
-#define FUNC_GL_STATE_SIZEI(name)                                                                                      \
-    void set_gl_state_##name(GLsizei value) {                                                                          \
-        gl_state->name = value;                                                                                        \
-        LOG_D(" -> gl_state: %s is %d", #name, value);                                                                 \
+// Old buffer map aliases
+#define buffer_map          GLState.buffer.bufferMap
+#define buffer_map_remove   GLState.buffer.bufferMapReverse
+#define vao_map             GLState.buffer.vaoMap
+#define vao_map_remove      GLState.buffer.vaoMapReverse
+#define buffer_info         GLState.buffer.bufferInfo
+
+// Old texture map aliases
+#define texture_map         GLState.texture.textureMap
+#define texture_map_remove  GLState.texture.textureMapReverse
+
+// Old FBO map aliases
+#define fbo_map             GLState.framebuffer.fboMap
+#define fbo_map_remove      GLState.framebuffer.fboMapReverse
+
+// Old shader/program map aliases
+#define shader_map          GLState.shader.shaderMap
+#define shader_map_remove   GLState.shader.shaderMapReverse
+#define program_map         GLState.shader.programMap
+#define program_map_remove  GLState.shader.programMapReverse
+
+// Old sampler buffer aliases
+#define tex_buffers         GLState.buffer.texBuffers
+
+// Old format conversion aliases (inline functions to avoid macro collisions)
+inline GLenum CheckTextureTarget(GLenum target) { return GLStateManager::ConvertTextureTarget(target); }
+inline GLenum CheckInternalFormat(GLenum format) { return GLStateManager::ConvertInternalFormat(format); }
+inline GLenum CheckFormat(GLenum format) { return GLStateManager::ConvertFormat(format); }
+inline GLenum CheckType(GLenum type) { return GLStateManager::ConvertType(type); }
+inline bool mglIsDepthStencil(GLenum format) { return GLStateManager::IsDepthStencilFormat(format); }
+inline bool mglIsCompressed(GLenum format) { return GLStateManager::IsCompressedFormat(format); }
+inline GLenum TextureBindingTarget(GLenum target) { return GLStateManager::GetTextureBindingTarget(target); }
+inline GLenum targetToBinding(GLenum target) { return GLStateManager::TargetToBindingTarget(target); }
+
+// Old state setter functions (called from texture.cpp, buffer.cpp, etc.)
+inline void set_gl_state_proxy_width(GLsizei value) { GLState.proxyWidth = value; }
+inline void set_gl_state_proxy_height(GLsizei value) { GLState.proxyHeight = value; }
+inline void set_gl_state_proxy_intformat(GLenum value) { GLState.proxyInternalFormat = value; }
+inline void set_gl_state_current_program(GLuint value) { GLState.currentProgram = value; }
+inline void set_gl_state_current_tex_unit(GLuint value) { GLState.currentTexUnit = value; }
+inline void set_gl_state_current_draw_fbo(GLuint value) { GLState.currentDrawFBO = value; }
+
+// Legacy helpers from original mg.cpp (called from texture.cpp)
+inline GLenum pname_convert(GLenum pname) {
+    switch (pname) {
+    case GL_TEXTURE_LOD_BIAS:
+        return GL_TEXTURE_LOD_BIAS_QCOM;
     }
-#define FUNC_GL_STATE_ENUM(name)                                                                                       \
-    void set_gl_state_##name(GLenum value) {                                                                           \
-        gl_state->name = value;                                                                                        \
-        LOG_D(" -> gl_state: %s is %d", #name, value);                                                                 \
-    }
-#define FUNC_GL_STATE_UINT(name)                                                                                       \
-    void set_gl_state_##name(GLuint value) {                                                                           \
-        gl_state->name = value;                                                                                        \
-        LOG_D(" -> gl_state: %s is %d", #name, value);                                                                 \
-    }
-#define FUNC_GL_STATE_SIZEI_DECLARATION(name) void set_gl_state_##name(GLsizei value);
-#define FUNC_GL_STATE_ENUM_DECLARATION(name) void set_gl_state_##name(GLenum value);
-#define FUNC_GL_STATE_UINT_DECLARATION(name) void set_gl_state_##name(GLuint value);
-
-    FUNC_GL_STATE_SIZEI_DECLARATION(proxy_width)
-    FUNC_GL_STATE_SIZEI_DECLARATION(proxy_height)
-    FUNC_GL_STATE_ENUM_DECLARATION(proxy_intformat)
-    FUNC_GL_STATE_UINT_DECLARATION(current_program)
-    FUNC_GL_STATE_UINT_DECLARATION(current_tex_unit)
-    FUNC_GL_STATE_UINT_DECLARATION(current_draw_fbo)
-
-    struct hardware_s {
-        unsigned int es_version;      // ES version in hundreds (e.g. 320 = 3.2)
-        bool emulate_texture_buffer;  // Always false on ES 3.2 (native support)
-    };
-    typedef struct hardware_s* hardware_t;
-    extern hardware_t hardware;
-
-    struct gl_state_s {
-        GLsizei proxy_width;
-        GLsizei proxy_height;
-        GLenum proxy_intformat;
-
-        GLuint current_program;
-        GLuint current_tex_unit;
-        GLuint current_draw_fbo;
-    };
-    typedef struct gl_state_s* gl_state_t;
-    extern gl_state_t gl_state;
-
-    GLenum pname_convert(GLenum pname);
-    GLenum map_tex_target(GLenum target);
-    void start_log();
-    void write_log(const char* format, ...);
-    void write_log_n(const char* format, ...);
-    void clear_log();
-
-#ifdef __cplusplus
+    return pname;
 }
-#endif
 
-void prepareForDrawImpl();
+inline GLenum map_tex_target(GLenum target) {
+    switch (target) {
+    case GL_TEXTURE_1D:
+    case GL_TEXTURE_RECTANGLE_ARB:
+        return GL_TEXTURE_2D;
+    case GL_PROXY_TEXTURE_1D:
+    case GL_PROXY_TEXTURE_RECTANGLE_ARB:
+        return GL_PROXY_TEXTURE_2D;
+    default:
+        return target;
+    }
+}
 
-// Inline check avoids function call overhead on the hot draw path
-// when emulate_texture_buffer is false (the default ES 3.2 case).
-#define PREPARE_FOR_DRAW() do { if (hardware->emulate_texture_buffer) [[unlikely]] prepareForDrawImpl(); } while(0)
+// Old state setter macros → direct assignments
+#define FUNC_GL_STATE_SIZEI(name, value) \
+    do { GLState.name = (value); STATE_LOG(#name " = %d", (int)(value)); } while (0)
 
-#endif // MOBILEGLUES_MG_H
+#define FUNC_GL_STATE_ENUM(name, value) \
+    do { GLState.name = (value); STATE_LOG(#name " = 0x%X", (unsigned)(value)); } while (0)
+
+#define FUNC_GL_STATE_UINT(name, value) \
+    do { GLState.name = (value); STATE_LOG(#name " = %u", (unsigned)(value)); } while (0)
+
+// Convenience: getter for state values
+#define GET_GL_STATE_SIZEI(name)    GLState.name
+#define GET_GL_STATE_ENUM(name)     GLState.name
+#define GET_GL_STATE_UINT(name)     GLState.name
+
+// ============================================================================
+// Utility: get real GLES ID from virtual ID
+// ============================================================================
+
+inline GLuint getRealBuffer(GLuint virtualId) {
+    return GLState.GetRealBuffer(virtualId);
+}
+
+inline GLuint getVirtualBuffer(GLuint realId) {
+    return GLState.GetVirtualBuffer(realId);
+}
+
+inline GLuint getRealTexture(GLuint virtualId) {
+    return GLState.GetRealTexture(virtualId);
+}
+
+inline GLuint getVirtualTexture(GLuint realId) {
+    return GLState.GetVirtualTexture(realId);
+}
+
+inline GLuint getRealFBO(GLuint virtualId) {
+    return GLState.GetRealFBO(virtualId);
+}
+
+inline GLuint getRealVAO(GLuint virtualId) {
+    return GLState.GetRealVAO(virtualId);
+}
+
+inline GLuint getRealProgram(GLuint virtualId) {
+    return GLState.GetRealProgram(virtualId);
+}
+
+inline GLuint getRealShader(GLuint virtualId) {
+    return GLState.GetRealShader(virtualId);
+}
+
+// ============================================================================
+// State initialization (called from mg.cpp)
+// ============================================================================
+
+void StateInit();
+
+// ============================================================================
+// Global texture unit count (queried from GLES)
+// ============================================================================
+
+extern int MG_MAX_COMBINED_TEXTURE_IMAGE_UNITS;

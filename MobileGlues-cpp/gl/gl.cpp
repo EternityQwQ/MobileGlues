@@ -1,177 +1,90 @@
 // MobileGlues - gl/gl.cpp
+// Core GL state wrappers: glClearDepth, glClear, glHint, glDrawBuffer, glReadBuffer.
+// NOTE: glDepthRange, glPolygonMode, glPointSize are in gl_stub.cpp
+//       glViewport is in FSR1/FSR1.cpp
+//       glGenTextures is in gl_native.cpp
+//
 // Copyright (c) 2025-2026 MobileGL-Dev
 // Licensed under the GNU Lesser General Public License v2.1:
 //   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
 // SPDX-License-Identifier: LGPL-2.1-only
 // End of Source File Header
 
-// ============================================================================
-// Core OpenGL Wrapper - Miscellaneous wrappers that don't fit elsewhere
-//
-// This file contains wrappers for functions that are NOT pure ES 3.2 native
-// pass-throughs but also don't belong to a specific subsystem:
-//   - glClearDepth: double→float conversion (not in ES 3.2)
-//   - glClear: ANGLE depth-clear bug workaround
-//   - glHint: simple pass-through
-//
-// State tracking functions (glActiveTexture, glBindBuffer, etc.) are in
-// their respective subsystem files (texture.cpp, buffer.cpp, etc.).
-// Pure native pass-throughs are in gl_native.cpp.
-// State queries are in getter.cpp.
-// ============================================================================
-
 #include "../includes.h"
 #include <GL/gl.h>
 #include "glcorearb.h"
 #include "log.h"
-#include "../gles/loader.h"
-#include "../config/settings.h"
-#include "mg.h"
 #include "framebuffer.h"
-#include "FSR1/FSR1.h"
-
-#include <cmath>
+#include "../gles/loader.h"
+#include "mg.h"
+#include <GLES3/gl32.h>
 
 #define DEBUG 0
 
 // ============================================================================
-// External Declarations
-// ============================================================================
-
-extern GLuint current_draw_fbo;
-extern std::vector<framebuffer_t> framebuffers;
-
-// ============================================================================
-// Local State
-// ============================================================================
-
-static GLclampd currentDepthValue;
-
-// ============================================================================
-// Section: Depth Clear Workaround (ANGLE depth-clear bug fix)
-// ============================================================================
-
-static GLuint g_depthClearProgram = 0;
-static GLuint g_depthClearVAO = 0;
-static GLuint g_depthClearVBO = 0;
-
-static const GLfloat kFullScreenTri[3][2] = {{-1.0f, -1.0f}, {3.0f, -1.0f}, {-1.0f, 3.0f}};
-
-static const char* kDepthClearVS = R"glsl(
-    #version 300 es
-    layout(location = 0) in vec2 aPos;
-    void main() {
-        gl_Position = vec4(aPos, 1.0, 1.0);
-    }
-)glsl";
-
-static const char* kDepthClearFS = R"glsl(
-    #version 300 es
-    precision mediump float;
-    out vec4 fragColor;
-    void main() {
-        fragColor = vec4(0.0);
-    }
-)glsl";
-
-static void InitDepthClearCoreProfile() {
-    if (g_depthClearProgram) return;
-
-    auto compile = [&](GLenum type, const char* src) {
-        GLuint s = GLES.glCreateShader(type);
-        GLES.glShaderSource(s, 1, &src, nullptr);
-        GLES.glCompileShader(s);
-        return s;
-    };
-    GLuint vs = compile(GL_VERTEX_SHADER, kDepthClearVS);
-    GLuint fs = compile(GL_FRAGMENT_SHADER, kDepthClearFS);
-
-    g_depthClearProgram = GLES.glCreateProgram();
-    GLES.glAttachShader(g_depthClearProgram, vs);
-    GLES.glAttachShader(g_depthClearProgram, fs);
-    GLES.glLinkProgram(g_depthClearProgram);
-    GLES.glDeleteShader(vs);
-    GLES.glDeleteShader(fs);
-
-    GLES.glGenVertexArrays(1, &g_depthClearVAO);
-    GLES.glGenBuffers(1, &g_depthClearVBO);
-
-    GLES.glBindVertexArray(g_depthClearVAO);
-    GLES.glBindBuffer(GL_ARRAY_BUFFER, g_depthClearVBO);
-    GLES.glBufferData(GL_ARRAY_BUFFER, sizeof(kFullScreenTri), kFullScreenTri, GL_STATIC_DRAW);
-
-    GLES.glEnableVertexAttribArray(0);
-    GLES.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-    GLES.glBindBuffer(GL_ARRAY_BUFFER, 0);
-    GLES.glBindVertexArray(0);
-}
-
-static void DrawDepthClearTri() {
-    InitDepthClearCoreProfile();
-
-    // Avoid 3 GPU round-trip glGet* queries by always restoring to defaults.
-    // The caller is expected to re-set its desired state after the depth clear.
-    GLES.glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    GLES.glDepthMask(GL_TRUE);
-    GLES.glDepthFunc(GL_ALWAYS);
-
-    GLES.glUseProgram(g_depthClearProgram);
-    GLES.glBindVertexArray(g_depthClearVAO);
-    GLES.glDrawArrays(GL_TRIANGLES, 0, 3);
-    GLES.glBindVertexArray(0);
-    GLES.glUseProgram(0);
-
-    GLES.glDepthFunc(GL_LESS);
-    GLES.glDepthMask(GL_TRUE);
-    GLES.glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-}
-
-// ============================================================================
-// Section: glClearDepth — double→float conversion (ES 3.2 only has glClearDepthf)
+// glClearDepth - desktop uses double, ES uses float
 // ============================================================================
 
 void glClearDepth(GLclampd depth) {
     LOG()
-    currentDepthValue = depth;
     GLES.glClearDepthf((float)depth);
+    GLState.legacy.clearDepth = (GLfloat)depth;
     CHECK_GL_ERROR
 }
 
 // ============================================================================
-// Section: glClear — ANGLE depth-clear bug workaround
+// glClear - handles legacy clear mask conversion
 // ============================================================================
 
 void glClear(GLbitfield mask) {
-    LOG();
-    LOG_D("glClear, mask = 0x%x", mask);
-
-    INIT_CHECK_GL_ERROR
-    CHECK_GL_ERROR_NO_INIT
-
-    if (global_settings.angle == AngleMode::Enabled && mask == GL_DEPTH_BUFFER_BIT &&
-        fabs(currentDepthValue - 1.0f) <= 0.001f && framebuffers[current_draw_fbo].color_attachments_all_none) [[unlikely]] {
-        LOG_D("doing depth workaround")
-        if (global_settings.angle_depth_clear_fix_mode == AngleDepthClearFixMode::Mode1)
-            DrawDepthClearTri();
-        else if (global_settings.angle_depth_clear_fix_mode == AngleDepthClearFixMode::Mode2) {
-            const GLfloat clear_depth_value = 1.0f;
-            GLES.glClearBufferfv(GL_DEPTH, 0, &clear_depth_value);
-        }
-        GLES.glClear(mask);
-    } else [[likely]] {
-        GLES.glClear(mask);
-    }
-
-    CHECK_GL_ERROR_NO_INIT;
+    LOG()
+    // GL_ACCUM_BUFFER_BIT is not supported in ES, strip it
+    mask &= ~0x00000200; // GL_ACCUM_BUFFER_BIT
+    GLES.glClear(mask);
+    CHECK_GL_ERROR
 }
 
 // ============================================================================
-// Section: glHint — simple pass-through
+// glHint - pass through (ES supports basic hints)
 // ============================================================================
 
 void glHint(GLenum target, GLenum mode) {
     LOG()
-    LOG_D("glHint, target = %s, mode = %s", glEnumToString(target), glEnumToString(mode))
     GLES.glHint(target, mode);
+    CHECK_GL_ERROR
+}
+
+// ============================================================================
+// glDrawBuffer - maps to glDrawBuffers in ES
+// ============================================================================
+
+extern "C" void glDrawBuffer(GLenum mode) {
+    LOG()
+    if (mode == GL_NONE) {
+        GLenum none = GL_NONE;
+        GLES.glDrawBuffers(1, &none);
+        GLState.framebuffer.drawBuffers[0] = GL_NONE;
+        GLState.framebuffer.drawBufferCount = 1;
+    } else if (mode >= GL_COLOR_ATTACHMENT0 && mode <= GL_COLOR_ATTACHMENT0 + 31) {
+        GLES.glDrawBuffers(1, &mode);
+        GLState.framebuffer.drawBuffers[0] = mode;
+        GLState.framebuffer.drawBufferCount = 1;
+    } else if (mode == GL_BACK || mode == GL_FRONT) {
+        GLenum back = GL_BACK;
+        GLES.glDrawBuffers(1, &back);
+        GLState.framebuffer.drawBuffers[0] = GL_BACK;
+        GLState.framebuffer.drawBufferCount = 1;
+    }
+    CHECK_GL_ERROR
+}
+
+// ============================================================================
+// glReadBuffer - track read buffer state
+// ============================================================================
+
+extern "C" void glReadBuffer(GLenum mode) {
+    LOG()
+    GLES.glReadBuffer(mode);
+    GLState.framebuffer.readBuffer = mode;
+    CHECK_GL_ERROR
 }

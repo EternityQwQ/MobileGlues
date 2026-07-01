@@ -22,6 +22,12 @@ extern "C"
 
     const char* glEnumToString(GLenum e);
 
+    // Log file stubs (used by LOG_* macros)
+    static inline void write_log(const char* fmt, ...) { (void)fmt; }
+    static inline void write_log_n(const char* fmt, ...) { (void)fmt; }
+    static inline void clear_log() {}
+    static inline void start_log() {}
+
 #ifdef __cplusplus
 }
 #endif

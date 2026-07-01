@@ -212,6 +212,13 @@ GLuint glCreateShader(GLenum type) {
     if (shader != 0) {
         auto& cacheEntry = get_shader_cache(shader);
         cacheEntry.type = type;
+
+        // Track in unified state manager
+        auto &ss = GLState.shader;
+        ss.shaderMap[shader] = shader;
+        ss.shaderMapReverse[shader] = shader;
+        auto &info = ss.shaderInfo[shader];
+        info.type = type;
     }
     return shader;
 }
@@ -226,6 +233,14 @@ void glCompileShader(GLuint shader) {
     GLES.glCompileShader(shader);
     GLint compiled = 0;
     GLES.glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+
+    // Track in unified state manager
+    auto &ss = GLState.shader;
+    auto it = ss.shaderInfo.find(shader);
+    if (it != ss.shaderInfo.end()) {
+        it->second.compiled = (compiled == GL_TRUE);
+    }
+
     if (!compiled) {
         GLint infoLen = 0;
         GLES.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
@@ -328,4 +343,11 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar* const* string, c
     // Step 7: Set the converted GLSL ES source
     const char* converted_code = converted.c_str();
     GLES.glShaderSource(shader, 1, &converted_code, nullptr);
+
+    // Track in unified state manager
+    auto &ss = GLState.shader;
+    auto infoIt = ss.shaderInfo.find(shader);
+    if (infoIt != ss.shaderInfo.end()) {
+        infoIt->second.source = converted;
+    }
 }

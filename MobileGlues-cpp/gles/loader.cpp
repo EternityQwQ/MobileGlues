@@ -114,16 +114,15 @@ void* proc_address(void* lib, const char* name) {
 
 void set_hardware() {
     // ES 3.2-only: always set version to 320 — no per-version branching needed.
-    hardware = new hardware_s;
-    hardware->es_version = 320;
-    hardware->emulate_texture_buffer = false;  // ES 3.2 natively supports glTexBuffer
+    GLState.esVersion = 320;
+    GLState.emulateTextureBuffer = false;  // ES 3.2 natively supports glTexBuffer
 }
 
 void init_gl_state() {
-    gl_state = new gl_state_s;
-    set_gl_state_proxy_height(0);
-    set_gl_state_proxy_width(0);
-    set_gl_state_proxy_intformat(0);
+    GLState.Initialize();
+    GLState.proxyWidth = 0;
+    GLState.proxyHeight = 0;
+    GLState.proxyInternalFormat = 0;
 
     InitTextureMap(1024);
     InitBufferMap(4096);

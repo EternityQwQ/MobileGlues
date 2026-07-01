@@ -14,14 +14,7 @@
 #include <stdio.h>
 #include <string>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 #include "../mg.h"
-#ifdef __cplusplus
-}
-#endif
 
 // ============================================================================
 // GLSL → SPIR-V → GLSL ES Conversion Interface

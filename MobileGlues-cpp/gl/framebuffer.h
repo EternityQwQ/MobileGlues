@@ -49,9 +49,8 @@ extern "C"
 
 void InitFramebufferMap(size_t expectedSize);
 
-// Current FBO bindings (tracked internally, used by DSA wrappers to avoid glGetIntegerv)
-extern GLuint current_draw_fbo;
-extern GLuint current_read_fbo;
+// Current FBO bindings (tracked in GLState.framebuffer, accessed via macros)
+// current_draw_fbo and current_read_fbo are defined as macros in mg.h
 
 // Temporary FBO pool for hot-path operations
 GLuint acquireTempFBO();

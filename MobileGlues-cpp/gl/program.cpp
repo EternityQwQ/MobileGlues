@@ -1,32 +1,23 @@
 // MobileGlues - gl/program.cpp
+// Program state management: ID mapping, linking, usage tracking.
+// Shader compilation and source management is handled by shader.cpp.
+//
 // Copyright (c) 2025-2026 MobileGL-Dev
 // Licensed under the GNU Lesser General Public License v2.1:
 //   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
 // SPDX-License-Identifier: LGPL-2.1-only
 // End of Source File Header
 
-// ============================================================================
-// ES 3.2 native → native, ES 3.2 not native → CPU simulation
-// ============================================================================
-
 #include "../includes.h"
-#include "program.h"
-#include "../gles/loader.h"
-#include "log.h"
-#include "mg.h"
-#include "shader.h"
 #include <GL/gl.h>
+#include "glcorearb.h"
+#include "log.h"
+#include "../gles/loader.h"
+#include "mg.h"
+#include <GLES3/gl32.h>
 #include <cstring>
 
 #define DEBUG 0
-
-// ============================================================================
-// Iris Shader Pipeline: Program/Shader Management
-// ============================================================================
-// Iris uses a multi-stage shader pipeline that includes vertex, geometry,
-// tessellation, and fragment shaders. MobileGlues hooks these to intercept
-// GLSL conversion through the GLSL → SPIR-V → GLSL ES pipeline.
-// ============================================================================
 
 // ============================================================================
 // Program Object Lifecycle (ES 3.2 native)
@@ -35,39 +26,45 @@
 GLuint glCreateProgram() {
     LOG()
     GLuint program = GLES.glCreateProgram();
-    LOG_D("glCreateProgram: created program=%d", program)
+    // Track in state manager (virtual == real for programs)
+    auto &ss = GLState.shader;
+    ss.programMap[program] = program;
+    ss.programMapReverse[program] = program;
+    ss.programInfo[program] = GLStateManager::ShaderState::ProgramInfo{};
     return program;
 }
 
 void glDeleteProgram(GLuint program) {
     LOG()
-    LOG_D("glDeleteProgram: program=%d", program)
+    auto &ss = GLState.shader;
+    if (ss.currentProgram == program) {
+        ss.currentProgram = 0;
+        GLState.currentProgram = 0;
+    }
+    ss.programMap.erase(program);
+    ss.programMapReverse.erase(program);
+    ss.programInfo.erase(program);
     GLES.glDeleteProgram(program);
     CHECK_GL_ERROR
 }
 
 // ============================================================================
-// Shader Object Lifecycle (ES 3.2 native)
+// Shader Object Lifecycle
 // ============================================================================
 
 // glCreateShader is handled in shader.cpp (GLSL conversion pipeline)
+// glShaderSource is handled in shader.cpp
+// glCompileShader is handled in shader.cpp
 
 void glDeleteShader(GLuint shader) {
     LOG()
-    LOG_D("glDeleteShader: shader=%d", shader)
-    invalidate_shader_cache(shader);
+    auto &ss = GLState.shader;
+    ss.shaderMap.erase(shader);
+    ss.shaderMapReverse.erase(shader);
+    ss.shaderInfo.erase(shader);
     GLES.glDeleteShader(shader);
     CHECK_GL_ERROR
 }
-
-// ============================================================================
-// Shader Compilation (ES 3.2 native)
-// glShaderSource is defined in shader.cpp with GLSL conversion
-// ============================================================================
-
-void glShaderSource(GLuint, GLsizei, const GLchar* const*, const GLint*);
-
-// glCompileShader is handled in shader.cpp (GLSL conversion pipeline)
 
 // ============================================================================
 // Program Linking & Validation (ES 3.2 native)
@@ -75,14 +72,27 @@ void glShaderSource(GLuint, GLsizei, const GLchar* const*, const GLint*);
 
 void glAttachShader(GLuint program, GLuint shader) {
     LOG()
-    LOG_D("glAttachShader: program=%d, shader=%d", program, shader)
     GLES.glAttachShader(program, shader);
+    // Track in state manager
+    auto &ss = GLState.shader;
+    auto it = ss.programInfo.find(program);
+    if (it != ss.programInfo.end()) {
+        it->second.attachedShaders.push_back(shader);
+    } else {
+        ss.programInfo[program] = GLStateManager::ShaderState::ProgramInfo{};
+        ss.programInfo[program].attachedShaders.push_back(shader);
+    }
 }
 
 void glDetachShader(GLuint program, GLuint shader) {
     LOG()
-    LOG_D("glDetachShader: program=%d, shader=%d", program, shader)
     GLES.glDetachShader(program, shader);
+    auto &ss = GLState.shader;
+    auto it = ss.programInfo.find(program);
+    if (it != ss.programInfo.end()) {
+        auto &vec = it->second.attachedShaders;
+        vec.erase(std::remove(vec.begin(), vec.end(), shader), vec.end());
+    }
     CHECK_GL_ERROR
 }
 
@@ -93,17 +103,21 @@ void glLinkProgram(GLuint program) {
     GLint linkStatus = 0;
     GLES.glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
 
+    auto &ss = GLState.shader;
+    auto it = ss.programInfo.find(program);
+    if (it != ss.programInfo.end()) {
+        it->second.linked = (linkStatus == GL_TRUE);
+    }
+
     if (linkStatus == GL_FALSE) {
         GLint infoLogLength = 0;
         GLES.glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
         if (infoLogLength > 1) {
             char* infoLog = new char[infoLogLength];
             GLES.glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog);
-            LOG_I("[MobileGLES] glLinkProgram FAILED: %s", infoLog)
+            MG_LOG_ERROR("glLinkProgram FAILED: %s", infoLog);
             delete[] infoLog;
         }
-    } else {
-        LOG_D("glLinkProgram: program=%d linked successfully", program)
     }
 }
 
@@ -114,13 +128,19 @@ void glValidateProgram(GLuint program) {
     GLint validateStatus = 0;
     GLES.glGetProgramiv(program, GL_VALIDATE_STATUS, &validateStatus);
 
+    auto &ss = GLState.shader;
+    auto it = ss.programInfo.find(program);
+    if (it != ss.programInfo.end()) {
+        it->second.validated = (validateStatus == GL_TRUE);
+    }
+
     if (validateStatus == GL_FALSE) {
         GLint infoLogLength = 0;
         GLES.glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
         if (infoLogLength > 1) {
             char* infoLog = new char[infoLogLength];
             GLES.glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog);
-            LOG_I("[MobileGLES] glValidateProgram FAILED: %s", infoLog)
+            MG_LOG_ERROR("glValidateProgram FAILED: %s", infoLog);
             delete[] infoLog;
         }
     }
@@ -132,7 +152,8 @@ void glValidateProgram(GLuint program) {
 
 void glUseProgram(GLuint program) {
     LOG()
-    set_gl_state_current_program(program);
+    GLState.shader.currentProgram = program;
+    GLState.currentProgram = program;
     GLES.glUseProgram(program);
 }
 
@@ -150,15 +171,19 @@ void glGetShaderiv(GLuint shader, GLenum pname, GLint* params) {
 
 void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog) {
     LOG()
-    LOG_D("glGetProgramInfoLog: program=%d, bufSize=%d", program, bufSize)
     GLES.glGetProgramInfoLog(program, bufSize, length, infoLog);
     CHECK_GL_ERROR
 }
 
 void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog) {
     LOG()
-    LOG_D("glGetShaderInfoLog: shader=%d, bufSize=%d", shader, bufSize)
     GLES.glGetShaderInfoLog(shader, bufSize, length, infoLog);
+    CHECK_GL_ERROR
+}
+
+void glGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei* count, GLuint* shaders) {
+    LOG()
+    GLES.glGetAttachedShaders(program, maxCount, count, shaders);
     CHECK_GL_ERROR
 }
 
@@ -168,14 +193,12 @@ void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar*
 
 void glBindAttribLocation(GLuint program, GLuint index, const GLchar* name) {
     LOG()
-    LOG_D("glBindAttribLocation: program=%d, index=%d, name=%s", program, index, name)
     GLES.glBindAttribLocation(program, index, name);
     CHECK_GL_ERROR
 }
 
 GLint glGetAttribLocation(GLuint program, const GLchar* name) {
     LOG()
-    LOG_D("glGetAttribLocation: program=%d, name=%s", program, name)
     GLint result = GLES.glGetAttribLocation(program, name);
     CHECK_GL_ERROR
     return result;
@@ -187,7 +210,6 @@ GLint glGetAttribLocation(GLuint program, const GLchar* name) {
 
 GLint glGetUniformLocation(GLuint program, const GLchar* name) {
     LOG()
-    LOG_D("glGetUniformLocation: program=%d, name=%s", program, name)
     GLint result = GLES.glGetUniformLocation(program, name);
     CHECK_GL_ERROR
     return result;
@@ -200,7 +222,6 @@ GLint glGetUniformLocation(GLuint program, const GLchar* name) {
 void glGetActiveAttrib(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size,
                        GLenum* type, GLchar* name) {
     LOG()
-    LOG_D("glGetActiveAttrib: program=%d, index=%d", program, index)
     GLES.glGetActiveAttrib(program, index, bufSize, length, size, type, name);
     CHECK_GL_ERROR
 }
@@ -208,22 +229,9 @@ void glGetActiveAttrib(GLuint program, GLuint index, GLsizei bufSize, GLsizei* l
 void glGetActiveUniform(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size,
                         GLenum* type, GLchar* name) {
     LOG()
-    LOG_D("glGetActiveUniform: program=%d, index=%d", program, index)
     GLES.glGetActiveUniform(program, index, bufSize, length, size, type, name);
     CHECK_GL_ERROR
 }
 
-void glGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei* count, GLuint* shaders) {
-    LOG()
-    LOG_D("glGetAttachedShaders: program=%d, maxCount=%d", program, maxCount)
-    GLES.glGetAttachedShaders(program, maxCount, count, shaders);
-    CHECK_GL_ERROR
-}
 
-// ============================================================================
-// Frag Data Location (ES 3.2 native via EXT)
-// ============================================================================
 
-void glBindFragDataLocation(GLuint program, GLuint color, const GLchar* name) {
-    GLES.glBindFragDataLocationEXT(program, color, name);
-}
