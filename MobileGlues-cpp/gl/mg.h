@@ -55,15 +55,15 @@ extern void* g_loader_handle;
 // Old sampler buffer aliases
 #define tex_buffers         GLState.buffer.texBuffers
 
-// Old format conversion aliases
-#define CheckTextureTarget  GLStateManager::ConvertTextureTarget
-#define CheckInternalFormat GLStateManager::ConvertInternalFormat
-#define CheckFormat         GLStateManager::ConvertFormat
-#define CheckType           GLStateManager::ConvertType
-#define isDepthStencil      GLStateManager::IsDepthStencilFormat
-#define isCompressed        GLStateManager::IsCompressedFormat
-#define TextureBindingTarget GLStateManager::GetTextureBindingTarget
-#define targetToBinding     GLStateManager::TargetToBindingTarget
+// Old format conversion aliases (inline functions to avoid macro collisions)
+inline GLenum CheckTextureTarget(GLenum target) { return GLStateManager::ConvertTextureTarget(target); }
+inline GLenum CheckInternalFormat(GLenum format) { return GLStateManager::ConvertInternalFormat(format); }
+inline GLenum CheckFormat(GLenum format) { return GLStateManager::ConvertFormat(format); }
+inline GLenum CheckType(GLenum type) { return GLStateManager::ConvertType(type); }
+inline bool mglIsDepthStencil(GLenum format) { return GLStateManager::IsDepthStencilFormat(format); }
+inline bool mglIsCompressed(GLenum format) { return GLStateManager::IsCompressedFormat(format); }
+inline GLenum TextureBindingTarget(GLenum target) { return GLStateManager::GetTextureBindingTarget(target); }
+inline GLenum targetToBinding(GLenum target) { return GLStateManager::TargetToBindingTarget(target); }
 
 // Old state setter macros → direct assignments
 #define FUNC_GL_STATE_SIZEI(name, value) \
