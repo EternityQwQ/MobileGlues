@@ -163,6 +163,8 @@ public:
             GLuint buffer = 0;
             GLuint texture = 0;
             GLenum internalFormat = 0;
+            GLint uniformLoc = -1;  // cached uniform location (invalidated on program change)
+            GLuint progId = 0;      // program ID for which uniformLoc was cached
         };
         UnorderedMap<GLuint, TexBufferSlot> texBuffers; // virtual buffer → {real buffer, tex}
 
@@ -527,9 +529,15 @@ private:
                     glBindTexture(GL_TEXTURE_2D, slot.texture);                          \
                     /* Set sampler uniform via the current program if known */           \
                     if (GLState.currentProgram) {                                        \
-                        GLint loc = glGetUniformLocation(GLState.currentProgram,         \
-                            ("mgTexBuf" + std::to_string(virtualBuf)).c_str());          \
-                        if (loc >= 0) glUniform1i(loc, texUnit);                         \
+                        /* Cache uniform location per program to avoid expensive         \
+                           glGetUniformLocation string lookup on every draw call */     \
+                        if (slot.uniformLoc < 0 || slot.progId != GLState.currentProgram) { \
+                            char buf[32];                                                \
+                            snprintf(buf, sizeof(buf), "mgTexBuf%u", virtualBuf);        \
+                            slot.uniformLoc = glGetUniformLocation(GLState.currentProgram, buf); \
+                            slot.progId = GLState.currentProgram;                        \
+                        }                                                                \
+                        if (slot.uniformLoc >= 0) glUniform1i(slot.uniformLoc, texUnit);  \
                     }                                                                     \
                     glActiveTexture(GL_TEXTURE0 + GLState.currentTexUnit);                \
                 }                                                                         \

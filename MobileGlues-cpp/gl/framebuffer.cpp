@@ -124,9 +124,7 @@ void glFramebufferTexture(GLenum target, GLenum attachment, GLuint texture, GLin
 // ============================================================================
 
 void glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer) {
-    LOG()
     GLES.glFramebufferTextureLayer(target, attachment, texture, level, layer);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -134,9 +132,7 @@ void glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture,
 // ============================================================================
 
 void glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) {
-    LOG()
     GLES.glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -159,9 +155,7 @@ GLenum glCheckFramebufferStatus(GLenum target) {
 // ============================================================================
 
 void glFramebufferParameteri(GLenum target, GLenum pname, GLint param) {
-    LOG()
     GLES.glFramebufferParameteri(target, pname, param);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -169,9 +163,7 @@ void glFramebufferParameteri(GLenum target, GLenum pname, GLint param) {
 // ============================================================================
 
 void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLenum pname, GLint *params) {
-    LOG()
     GLES.glGetFramebufferAttachmentParameteriv(target, attachment, pname, params);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -179,9 +171,7 @@ void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLe
 // ============================================================================
 
 void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint *params) {
-    LOG()
     GLES.glGetFramebufferParameteriv(target, pname, params);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -191,11 +181,9 @@ void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint *params) {
 void glBlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
                        GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                        GLbitfield mask, GLenum filter) {
-    LOG()
     // Strip GL_ACCUM_BUFFER_BIT
     mask &= ~0x00000200;
     GLES.glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -203,16 +191,12 @@ void glBlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
 // ============================================================================
 
 void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments) {
-    LOG()
     GLES.glInvalidateFramebuffer(target, numAttachments, attachments);
-    CHECK_GL_ERROR
 }
 
 void glInvalidateSubFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments,
                                 GLint x, GLint y, GLsizei width, GLsizei height) {
-    LOG()
     GLES.glInvalidateSubFramebuffer(target, numAttachments, attachments, x, y, width, height);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
