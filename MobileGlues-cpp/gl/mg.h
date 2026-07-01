@@ -22,11 +22,11 @@ extern void* g_loader_handle;
 // Old state variable aliases (pointer-style for backward compat)
 #define gl_state         (&GLState)
 #define hardware         (&GLState)
-#define proxy_width      GLState.proxyWidth
-#define proxy_height     GLState.proxyHeight
-#define proxy_intformat  GLState.proxyInternalFormat
-#define current_program  GLState.currentProgram
-#define current_tex_unit GLState.currentTexUnit
+#define proxy_width      proxyWidth
+#define proxy_height     proxyHeight
+#define proxy_intformat  proxyInternalFormat
+#define current_program  currentProgram
+#define current_tex_unit currentTexUnit
 #define current_draw_fbo GLState.currentDrawFBO
 #define current_read_fbo GLState.framebuffer.readFBO
 #define is_draw_call     GLState.isDrawCall
@@ -64,6 +64,14 @@ inline bool mglIsDepthStencil(GLenum format) { return GLStateManager::IsDepthSte
 inline bool mglIsCompressed(GLenum format) { return GLStateManager::IsCompressedFormat(format); }
 inline GLenum TextureBindingTarget(GLenum target) { return GLStateManager::GetTextureBindingTarget(target); }
 inline GLenum targetToBinding(GLenum target) { return GLStateManager::TargetToBindingTarget(target); }
+
+// Old state setter functions (called from texture.cpp, buffer.cpp, etc.)
+inline void set_gl_state_proxy_width(GLsizei value) { GLState.proxyWidth = value; }
+inline void set_gl_state_proxy_height(GLsizei value) { GLState.proxyHeight = value; }
+inline void set_gl_state_proxy_intformat(GLenum value) { GLState.proxyInternalFormat = value; }
+inline void set_gl_state_current_program(GLuint value) { GLState.currentProgram = value; }
+inline void set_gl_state_current_tex_unit(GLuint value) { GLState.currentTexUnit = value; }
+inline void set_gl_state_current_draw_fbo(GLuint value) { GLState.currentDrawFBO = value; }
 
 // Old state setter macros → direct assignments
 #define FUNC_GL_STATE_SIZEI(name, value) \
