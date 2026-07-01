@@ -24,28 +24,21 @@
 // glGetError - always returns GL_NO_ERROR
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(GLenum, glGetError)
-{
-    // We swallow errors to avoid confusing the application
-    // Real GLES errors are consumed internally
+GLenum glGetError() {
     return GL_NO_ERROR;
 }
-NATIVE_FUNCTION_END(GLenum, glGetError)
 
 // ============================================================================
 // glGetIntegerv - CPU-side state simulation for non-ES queries
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
-{
+void glGetIntegerv(GLenum pname, GLint *params) {
+    LOG()
     auto &legacy = GLState.legacy;
     auto &fb = GLState.framebuffer;
     auto &bs = GLState.buffer;
 
     switch (pname) {
-        // ================================================================
-        // Viewport & Scissor
-        // ================================================================
         case GL_VIEWPORT:
             params[0] = legacy.viewport[0];
             params[1] = legacy.viewport[1];
@@ -60,9 +53,6 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             params[3] = legacy.scissor[3];
             break;
 
-        // ================================================================
-        // Color & Depth
-        // ================================================================
         case GL_COLOR_CLEAR_VALUE:
             params[0] = (GLint)(legacy.clearColor[0] * 255);
             params[1] = (GLint)(legacy.clearColor[1] * 255);
@@ -105,9 +95,6 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             *params = (GLint)legacy.stencilMask;
             break;
 
-        // ================================================================
-        // Blending
-        // ================================================================
         case GL_BLEND_SRC:
         case GL_BLEND_SRC_RGB:
             *params = legacy.blendSrcRGB;
@@ -126,9 +113,6 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             *params = legacy.blendDstAlpha;
             break;
 
-        // ================================================================
-        // Culling & Face
-        // ================================================================
         case GL_CULL_FACE_MODE:
             *params = legacy.cullFace;
             break;
@@ -146,9 +130,6 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             *params = (GLint)legacy.lineWidth;
             break;
 
-        // ================================================================
-        // Buffer bindings
-        // ================================================================
         case GL_ARRAY_BUFFER_BINDING:
             *params = (GLint)(bs.boundBuffer.count(GL_ARRAY_BUFFER) ? bs.boundBuffer[GL_ARRAY_BUFFER] : 0);
             break;
@@ -169,16 +150,12 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             *params = (GLint)GLState.vertexArray.currentVAO;
             break;
 
-        // ================================================================
-        // Texture bindings
-        // ================================================================
         case GL_TEXTURE_BINDING_1D:
         case GL_TEXTURE_BINDING_2D:
         case GL_TEXTURE_BINDING_3D:
         case GL_TEXTURE_BINDING_CUBE_MAP:
         case GL_TEXTURE_BINDING_1D_ARRAY:
-        case GL_TEXTURE_BINDING_2D_ARRAY:
-        {
+        case GL_TEXTURE_BINDING_2D_ARRAY: {
             GLenum target = GL_TEXTURE_2D;
             switch (pname) {
                 case GL_TEXTURE_BINDING_1D: target = GL_TEXTURE_1D; break;
@@ -198,9 +175,6 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             *params = GL_TEXTURE0 + GLState.texture.activeUnit;
             break;
 
-        // ================================================================
-        // Framebuffer bindings
-        // ================================================================
         case GL_DRAW_FRAMEBUFFER_BINDING:
             *params = (GLint)fb.drawFBO;
             break;
@@ -217,64 +191,13 @@ NATIVE_FUNCTION_HEAD(void, glGetIntegerv, GLenum pname, GLint *params)
             *params = (GLint)fb.readBuffer;
             break;
 
-        // ================================================================
-        // Program binding
-        // ================================================================
         case GL_CURRENT_PROGRAM:
             *params = (GLint)GLState.currentProgram;
             break;
 
-        // ================================================================
-        // Misc
-        // ================================================================
-        case GL_SAMPLES:
-        case GL_SAMPLE_BUFFERS:
-        case GL_MAX_SAMPLES:
-        case GL_MAX_TEXTURE_SIZE:
-        case GL_MAX_3D_TEXTURE_SIZE:
-        case GL_MAX_CUBE_MAP_TEXTURE_SIZE:
-        case GL_MAX_ARRAY_TEXTURE_LAYERS:
-        case GL_MAX_TEXTURE_IMAGE_UNITS:
-        case GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:
-        case GL_MAX_DRAW_BUFFERS:
-        case GL_MAX_COLOR_ATTACHMENTS:
-        case GL_MAX_RENDERBUFFER_SIZE:
-        case GL_MAX_VERTEX_ATTRIBS:
-        case GL_MAX_VERTEX_UNIFORM_VECTORS:
-        case GL_MAX_FRAGMENT_UNIFORM_VECTORS:
-        case GL_MAX_VARYING_VECTORS:
-        case GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS:
-        case GL_SUBPIXEL_BITS:
-        case GL_MAX_ELEMENTS_VERTICES:
-        case GL_MAX_ELEMENTS_INDICES:
-        case GL_MAX_UNIFORM_BUFFER_BINDINGS:
-        case GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS:
-        case GL_MAX_TRANSFORM_FEEDBACK_BUFFERS:
-        case GL_MAJOR_VERSION:
-        case GL_MINOR_VERSION:
-        case GL_NUM_EXTENSIONS:
-        case GL_NUM_SHADER_BINARY_FORMATS:
-        case GL_NUM_PROGRAM_BINARY_FORMATS:
-        case GL_NUM_COMPRESSED_TEXTURE_FORMATS:
-        case GL_COMPRESSED_TEXTURE_FORMATS:
-        case GL_MAX_COMPUTE_WORK_GROUP_SIZE:
-        case GL_MAX_COMPUTE_WORK_GROUP_COUNT:
-        case GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS:
-        case GL_MAX_COMPUTE_SHARED_MEMORY_SIZE:
-        case GL_MAX_COMPUTE_UNIFORM_COMPONENTS:
-        case GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS:
-        case GL_MAX_COMPUTE_IMAGE_UNIFORMS:
-        case GL_MAX_COMPUTE_ATOMIC_COUNTERS:
-        case GL_MAX_COMPUTE_ATOMIC_COUNTER_BUFFERS:
-        case GL_IMPLEMENTATION_COLOR_READ_FORMAT:
-        case GL_IMPLEMENTATION_COLOR_READ_TYPE:
-            _native(pname, params);
-            break;
-
         default:
-            // Unknown query: pass through to native
-            _native(pname, params);
+            // Native passthrough for all other queries
+            GLES.glGetIntegerv(pname, params);
             break;
     }
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glGetIntegerv, pname, params)

@@ -1,6 +1,5 @@
 // MobileGlues - gl/drawing.cpp
-// Draw call preparation: sampler buffer emulation, atomic counter handling,
-// and draw call dispatch.
+// Draw call dispatch: sampler buffer emulation, atomic counter handling.
 //
 // Architecture principle: "ES 3.2 native → native, ES 3.2 not native → CPU simulation"
 //
@@ -24,40 +23,35 @@
 // Atomic counter buffer emulation
 // ============================================================================
 
-// Update CPU-side atomic counter data before a draw call
-static void syncAtomicCounters()
-{
+static void syncAtomicCounters() {
     auto &bs = GLState.buffer;
     if (bs.atomicCounterBufferBinding == 0) return;
     if (bs.atomicCounterData.empty()) return;
 
-    // Upload CPU-side atomic counter data to the GPU buffer
     GLuint realBuf = GLState.GetRealBuffer(bs.atomicCounterBufferBinding);
     if (realBuf) {
-        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, realBuf);
-        glBufferSubData(GL_ATOMIC_COUNTER_BUFFER,
-                       bs.atomicCounterBufferOffset,
-                       bs.atomicCounterBufferSize,
-                       bs.atomicCounterData.data());
+        GLES.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, realBuf);
+        GLES.glBufferSubData(GL_ATOMIC_COUNTER_BUFFER,
+                             bs.atomicCounterBufferOffset,
+                             bs.atomicCounterBufferSize,
+                             bs.atomicCounterData.data());
     }
 }
 
-// Read back atomic counter data after a draw call (for compute shaders)
-static void readbackAtomicCounters()
-{
+static void readbackAtomicCounters() {
     auto &bs = GLState.buffer;
     if (bs.atomicCounterBufferBinding == 0) return;
 
     GLuint realBuf = GLState.GetRealBuffer(bs.atomicCounterBufferBinding);
     if (realBuf) {
-        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, realBuf);
-        void *ptr = glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER,
-                                     bs.atomicCounterBufferOffset,
-                                     bs.atomicCounterBufferSize,
-                                     GL_MAP_READ_BIT);
+        GLES.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, realBuf);
+        void *ptr = GLES.glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER,
+                                          bs.atomicCounterBufferOffset,
+                                          bs.atomicCounterBufferSize,
+                                          GL_MAP_READ_BIT);
         if (ptr) {
             memcpy(bs.atomicCounterData.data(), ptr, (size_t)bs.atomicCounterBufferSize);
-            glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+            GLES.glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
         }
     }
 }
@@ -66,90 +60,90 @@ static void readbackAtomicCounters()
 // Draw call dispatch
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(void, glDrawArrays, GLenum mode, GLint first, GLsizei count)
-{
+void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, first, count);
+    GLES.glDrawArrays(mode, first, count);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawArrays, mode, first, count)
 
-NATIVE_FUNCTION_HEAD(void, glDrawElements, GLenum mode, GLsizei count, GLenum type, const void *indices)
-{
+void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, count, type, indices);
+    GLES.glDrawElements(mode, count, type, indices);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElements, mode, count, type, indices)
 
-NATIVE_FUNCTION_HEAD(void, glDrawArraysInstanced, GLenum mode, GLint first, GLsizei count, GLsizei instancecount)
-{
+void glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, first, count, instancecount);
+    GLES.glDrawArraysInstanced(mode, first, count, instancecount);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawArraysInstanced, mode, first, count, instancecount)
 
-NATIVE_FUNCTION_HEAD(void, glDrawElementsInstanced, GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount)
-{
+void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, count, type, indices, instancecount);
+    GLES.glDrawElementsInstanced(mode, count, type, indices, instancecount);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsInstanced, mode, count, type, indices, instancecount)
 
-NATIVE_FUNCTION_HEAD(void, glDrawRangeElements, GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices)
-{
+void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, start, end, count, type, indices);
+    GLES.glDrawRangeElements(mode, start, end, count, type, indices);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawRangeElements, mode, start, end, count, type, indices)
 
-NATIVE_FUNCTION_HEAD(void, glDrawElementsBaseVertex, GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex)
-{
+void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, count, type, indices, basevertex);
+    GLES.glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsBaseVertex, mode, count, type, indices, basevertex)
 
-NATIVE_FUNCTION_HEAD(void, glDrawArraysIndirect, GLenum mode, const void *indirect)
-{
+void glDrawArraysIndirect(GLenum mode, const void *indirect) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, indirect);
+    GLES.glDrawArraysIndirect(mode, indirect);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawArraysIndirect, mode, indirect)
 
-NATIVE_FUNCTION_HEAD(void, glDrawElementsIndirect, GLenum mode, GLenum type, const void *indirect)
-{
+void glDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(mode, type, indirect);
+    GLES.glDrawElementsIndirect(mode, type, indirect);
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawElementsIndirect, mode, type, indirect)
 
 // ============================================================================
 // Compute shader dispatch
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(void, glDispatchCompute, GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)
-{
+void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) {
+    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
-    _native(num_groups_x, num_groups_y, num_groups_z);
+    GLES.glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
     readbackAtomicCounters();
+    CHECK_GL_ERROR
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDispatchCompute, num_groups_x, num_groups_y, num_groups_z)
 
 // ============================================================================
 // glDrawBuffers - track draw buffer state
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(void, glDrawBuffers, GLsizei n, const GLenum *bufs)
-{
-    _native(n, bufs);
+void glDrawBuffers(GLsizei n, const GLenum *bufs) {
+    LOG()
+    GLES.glDrawBuffers(n, bufs);
 
     auto &fb = GLState.framebuffer;
     fb.drawBufferCount = n;
@@ -157,16 +151,14 @@ NATIVE_FUNCTION_HEAD(void, glDrawBuffers, GLsizei n, const GLenum *bufs)
         fb.drawBuffers[i] = bufs[i];
     }
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glDrawBuffers, n, bufs)
 
 // ============================================================================
 // glBindImageTexture - track image unit state
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(void, glBindImageTexture, GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
-{
-    GLuint realTex = GLState.GetRealTexture(texture);
-    _native(unit, realTex, level, layered, layer, access, format);
+void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format) {
+    LOG()
+    GLES.glBindImageTexture(unit, texture, level, layered, layer, access, format);
 
     if (unit < MAX_IMAGE_UNITS) {
         auto &img = GLState.image.imageUnits[unit];
@@ -178,18 +170,15 @@ NATIVE_FUNCTION_HEAD(void, glBindImageTexture, GLuint unit, GLuint texture, GLin
         img.format = format;
     }
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glBindImageTexture, unit, texture, level, layered, layer, access, format)
 
 // ============================================================================
 // glMemoryBarrier - handle atomic counter buffer sync
 // ============================================================================
 
-NATIVE_FUNCTION_HEAD(void, glMemoryBarrier, GLbitfield barriers)
-{
-    // Before barrier, sync atomic counter data if needed
+void glMemoryBarrier(GLbitfield barriers) {
+    LOG()
     if (barriers & GL_ATOMIC_COUNTER_BARRIER_BIT) {
         syncAtomicCounters();
     }
-    _native(barriers);
+    GLES.glMemoryBarrier(barriers);
 }
-NATIVE_FUNCTION_END_NO_RETURN(void, glMemoryBarrier, barriers)
