@@ -6,6 +6,7 @@
 // End of Source File Header
 
 #include "cache.h"
+#include "../log.h"
 #include <fstream>
 #include <cstring>
 #include <vector>
