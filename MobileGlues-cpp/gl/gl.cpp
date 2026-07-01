@@ -26,10 +26,8 @@
 // ============================================================================
 
 void glClearDepth(GLclampd depth) {
-    LOG()
     GLES.glClearDepthf((float)depth);
     GLState.legacy.clearDepth = (GLfloat)depth;
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -37,11 +35,9 @@ void glClearDepth(GLclampd depth) {
 // ============================================================================
 
 void glClear(GLbitfield mask) {
-    LOG()
     // GL_ACCUM_BUFFER_BIT is not supported in ES, strip it
     mask &= ~0x00000200; // GL_ACCUM_BUFFER_BIT
     GLES.glClear(mask);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -49,9 +45,7 @@ void glClear(GLbitfield mask) {
 // ============================================================================
 
 void glHint(GLenum target, GLenum mode) {
-    LOG()
     GLES.glHint(target, mode);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -59,7 +53,6 @@ void glHint(GLenum target, GLenum mode) {
 // ============================================================================
 
 extern "C" void glDrawBuffer(GLenum mode) {
-    LOG()
     if (mode == GL_NONE) {
         GLenum none = GL_NONE;
         GLES.glDrawBuffers(1, &none);
@@ -75,7 +68,6 @@ extern "C" void glDrawBuffer(GLenum mode) {
         GLState.framebuffer.drawBuffers[0] = GL_BACK;
         GLState.framebuffer.drawBufferCount = 1;
     }
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -83,8 +75,6 @@ extern "C" void glDrawBuffer(GLenum mode) {
 // ============================================================================
 
 extern "C" void glReadBuffer(GLenum mode) {
-    LOG()
     GLES.glReadBuffer(mode);
     GLState.framebuffer.readBuffer = mode;
-    CHECK_GL_ERROR
 }

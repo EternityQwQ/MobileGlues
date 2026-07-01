@@ -68,67 +68,51 @@ static void readbackAtomicCounters() {
 // ============================================================================
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawArrays(mode, first, count);
-    CHECK_GL_ERROR
 }
 
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElements(mode, count, type, indices);
-    CHECK_GL_ERROR
 }
 
 void glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawArraysInstanced(mode, first, count, instancecount);
-    CHECK_GL_ERROR
 }
 
 void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElementsInstanced(mode, count, type, indices, instancecount);
-    CHECK_GL_ERROR
 }
 
 void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawRangeElements(mode, start, end, count, type, indices);
-    CHECK_GL_ERROR
 }
 
 void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
-    CHECK_GL_ERROR
 }
 
 void glDrawArraysIndirect(GLenum mode, const void *indirect) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawArraysIndirect(mode, indirect);
-    CHECK_GL_ERROR
 }
 
 void glDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElementsIndirect(mode, type, indirect);
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -136,12 +120,10 @@ void glDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect) {
 // ============================================================================
 
 void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) {
-    LOG()
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
     readbackAtomicCounters();
-    CHECK_GL_ERROR
 }
 
 // ============================================================================
@@ -149,7 +131,6 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 // ============================================================================
 
 void glDrawBuffers(GLsizei n, const GLenum *bufs) {
-    LOG()
     GLES.glDrawBuffers(n, bufs);
 
     auto &fb = GLState.framebuffer;
@@ -164,7 +145,6 @@ void glDrawBuffers(GLsizei n, const GLenum *bufs) {
 // ============================================================================
 
 void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format) {
-    LOG()
     GLES.glBindImageTexture(unit, texture, level, layered, layer, access, format);
 
     if (unit < MAX_IMAGE_UNITS) {
@@ -183,7 +163,6 @@ void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean laye
 // ============================================================================
 
 void glMemoryBarrier(GLbitfield barriers) {
-    LOG()
     if (barriers & GL_ATOMIC_COUNTER_BARRIER_BIT) {
         syncAtomicCounters();
     }
