@@ -11,6 +11,8 @@
 #pragma once
 
 #include "state.h"
+#include "../gles/gles.h"
+#include "glext.h"
 
 // Include the loader handle extern (defined in gles/loader.cpp)
 extern void* g_loader_handle;
@@ -72,6 +74,28 @@ inline void set_gl_state_proxy_intformat(GLenum value) { GLState.proxyInternalFo
 inline void set_gl_state_current_program(GLuint value) { GLState.currentProgram = value; }
 inline void set_gl_state_current_tex_unit(GLuint value) { GLState.currentTexUnit = value; }
 inline void set_gl_state_current_draw_fbo(GLuint value) { GLState.currentDrawFBO = value; }
+
+// Legacy helpers from original mg.cpp (called from texture.cpp)
+inline GLenum pname_convert(GLenum pname) {
+    switch (pname) {
+    case GL_TEXTURE_LOD_BIAS:
+        return GL_TEXTURE_LOD_BIAS_QCOM;
+    }
+    return pname;
+}
+
+inline GLenum map_tex_target(GLenum target) {
+    switch (target) {
+    case GL_TEXTURE_1D:
+    case GL_TEXTURE_RECTANGLE_ARB:
+        return GL_TEXTURE_2D;
+    case GL_PROXY_TEXTURE_1D:
+    case GL_PROXY_TEXTURE_RECTANGLE_ARB:
+        return GL_PROXY_TEXTURE_2D;
+    default:
+        return target;
+    }
+}
 
 // Old state setter macros → direct assignments
 #define FUNC_GL_STATE_SIZEI(name, value) \
