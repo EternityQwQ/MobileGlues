@@ -7,7 +7,8 @@
 // extension implementation. The public API entry points are defined elsewhere:
 //   - drawing.cpp: glDispatchCompute, glBindImageTexture, glMemoryBarrier
 //   - gl_native.cpp: glDispatchComputeIndirect, glMemoryBarrierByRegion
-//   - gl_stub.cpp: glDispatchComputeGroupSizeARB, glBindImageTextures
+//   - gl_stub.cpp: glDispatchComputeGroupSizeARB
+//   - ExtWrappers/MultiBindWrapper.cpp: glBindImageTextures
 //
 // Copyright (c) 2025-2026 MobileGL-Dev
 // Licensed under the GNU Lesser General Public License v2.1:
@@ -56,16 +57,6 @@ void mgDispatchComputeGroupSizeARB(GLuint num_groups_x, GLuint num_groups_y,
                                    GLuint num_groups_z,
                                    GLuint group_size_x, GLuint group_size_y,
                                    GLuint group_size_z);
-
-// ============================================================================
-// ARB_multi_bind (image textures) emulation
-// ============================================================================
-
-// Bind multiple textures to image units starting at 'first'.
-// Each texture is bound with level=0, layered=GL_TRUE, layer=0,
-// access=GL_READ_WRITE, format=GL_R32UI.
-// A texture of 0 unbinds the image unit.
-void mgBindImageTextures(GLuint first, GLsizei count, const GLuint* textures);
 
 #ifdef __cplusplus
 }

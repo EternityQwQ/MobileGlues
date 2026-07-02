@@ -9,7 +9,6 @@
 //
 // Functions provided:
 //   mgDispatchComputeGroupSizeARB → ARB_compute_variable_group_size emulation
-//   mgBindImageTextures           → ARB_multi_bind (image textures) emulation
 //   ComputeShader_OnUseProgram    → called when a compute program is activated
 //
 // glDispatchComputeGroupSizeARB rationale:
@@ -43,17 +42,6 @@
 static GLuint compute_shader_program = 0;
 static GLint  compute_shader_local_size[3] = { 1, 1, 1 };
 static bool   compute_shader_local_size_valid = false;
-
-// Image unit tracking (for mgBindImageTexture / mgBindImageTextures)
-#define MAX_IMAGE_UNITS 16
-static struct {
-    GLuint    texture;
-    GLint     level;
-    GLboolean layered;
-    GLint     layer;
-    GLenum    access;
-    GLenum    format;
-} image_unit_state_cs[MAX_IMAGE_UNITS];
 
 // ---------------------------------------------------------------------------
 // Helper: query the current program's compute shader work group size
@@ -130,34 +118,5 @@ extern "C" void mgDispatchComputeGroupSizeARB(GLuint num_groups_x, GLuint num_gr
         // default local size. This passes through directly since we can't
         // adjust without knowing the local size.
         GLES.glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
-    }
-}
-
-// ---------------------------------------------------------------------------
-// mgBindImageTextures
-// Emulated - not natively available in ES 3.2
-// Binds num_textures to image units starting at 'first'.
-// Each texture is bound with level=0, layered=GL_TRUE, layer=0,
-// access=GL_READ_WRITE, format=GL_R32UI (conservative default).
-// A texture of 0 unbinds the image unit.
-// ---------------------------------------------------------------------------
-extern "C" void mgBindImageTextures(GLuint first, GLsizei count, const GLuint* textures) {
-    if (count < 0) return;
-
-    for (GLsizei i = 0; i < count; i++) {
-        GLuint unit = first + (GLuint)i;
-        GLuint tex  = (textures != nullptr) ? textures[i] : 0;
-
-        // Only bind if within our tracked range
-        if (unit < MAX_IMAGE_UNITS) {
-            image_unit_state_cs[unit].texture = tex;
-            image_unit_state_cs[unit].level   = 0;
-            image_unit_state_cs[unit].layered = GL_TRUE;
-            image_unit_state_cs[unit].layer   = 0;
-            image_unit_state_cs[unit].access  = GL_READ_WRITE;
-            image_unit_state_cs[unit].format  = GL_R32UI;
-        }
-
-        GLES.glBindImageTexture(unit, tex, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32UI);
     }
 }

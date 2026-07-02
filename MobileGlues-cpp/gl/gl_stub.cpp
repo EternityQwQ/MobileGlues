@@ -635,11 +635,7 @@ STUB_FUNCTION_HEAD(void, glBindBuffersBase, GLenum target, GLuint first, GLsizei
 STUB_FUNCTION_HEAD(void, glBindBuffersRange, GLenum target, GLuint first, GLsizei count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes); STUB_FUNCTION_END_NO_RETURN(void, glBindBuffersRange,target,first,count,buffers,offsets,sizes)
 //STUB_FUNCTION_HEAD(void, glBindTextures, GLuint first, GLsizei count, const GLuint* textures); STUB_FUNCTION_END_NO_RETURN(void, glBindTextures,first,count,textures)
 //STUB_FUNCTION_HEAD(void, glBindSamplers, GLuint first, GLsizei count, const GLuint* samplers); STUB_FUNCTION_END_NO_RETURN(void, glBindSamplers,first,count,samplers)
-// glBindImageTextures - emulated via loop of glBindImageTexture
-// (see ComputeShader.cpp for the implementation)
-CPU_SIM_FUNCTION_HEAD(void, glBindImageTextures, GLuint first, GLsizei count, const GLuint* textures)
-    mgBindImageTextures(first, count, textures);
-CPU_SIM_FUNCTION_END_NO_RETURN(void, glBindImageTextures, first, count, textures)
+//STUB_FUNCTION_HEAD(void, glBindImageTextures, GLuint first, GLsizei count, const GLuint* textures); STUB_FUNCTION_END_NO_RETURN(void, glBindImageTextures,first,count,textures)
 //STUB_FUNCTION_HEAD(void, glBindVertexBuffers, GLuint first, GLsizei count, const GLuint* buffers, const GLintptr* offsets, const GLsizei* strides); STUB_FUNCTION_END_NO_RETURN(void, glBindVertexBuffers,first,count,buffers,offsets,strides)
 STUB_FUNCTION_HEAD(void, glClipControl, GLenum origin, GLenum depth); STUB_FUNCTION_END_NO_RETURN(void, glClipControl,origin,depth)
 //STUB_FUNCTION_HEAD(void, glCreateTransformFeedbacks, GLsizei n, GLuint* ids); STUB_FUNCTION_END_NO_RETURN(void, glCreateTransformFeedbacks,n,ids)
