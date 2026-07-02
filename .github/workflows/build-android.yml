@@ -18,11 +18,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "3.29.6"
+
       - name: Install Android NDK
         run: |
           yes | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install \
-            "ndk;${{ env.NDK_VERSION }}" \
-            "cmake;3.22.1" > /dev/null
+            "ndk;${{ env.NDK_VERSION }}" > /dev/null
 
       - name: Build MobileGlues
         run: |

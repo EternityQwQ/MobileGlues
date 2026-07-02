@@ -9,6 +9,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "3.29.6"
+
       - name: Build MobileGlues
         run: |
           cd MobileGlues-cpp
