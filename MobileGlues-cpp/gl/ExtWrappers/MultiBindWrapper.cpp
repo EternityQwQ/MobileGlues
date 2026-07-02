@@ -14,9 +14,20 @@
 void glBindTextures(GLuint first, GLsizei count, const GLuint* textures) {
     GLuint prevUnit = GL_TEXTURE0 + GetCurrentTextureUnitIndex();
     for (GLsizei i = 0; i < count; ++i) {
-        GLenum target = ConvertTextureTargetToGLEnum(mgGetTexObjectByID(textures[i])->target);
-        glActiveTexture(GL_TEXTURE0 + first + i);
-        glBindTexture(target, textures[i]);
+        if (textures[i] == 0) {
+            // Unbind: use GL_TEXTURE_2D as default target for unbind
+            glActiveTexture(GL_TEXTURE0 + first + i);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        } else {
+            auto* texObj = mgGetTexObjectByID(textures[i]);
+            if (!texObj) {
+                LOG_E("glBindTextures: texture %u not found in tracking table", textures[i]);
+                continue;
+            }
+            GLenum target = ConvertTextureTargetToGLEnum(texObj->target);
+            glActiveTexture(GL_TEXTURE0 + first + i);
+            glBindTexture(target, textures[i]);
+        }
     }
     glActiveTexture(prevUnit);
 }
@@ -32,8 +43,9 @@ void glBindImageTextures(GLuint first, GLsizei count, const GLuint* textures) {
         if (textures == nullptr || textures[i] == 0) {
             glBindImageTexture(first + i, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R8);
         } else {
-            glBindImageTexture(first + i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE,
-                               mgGetTexObjectByID(textures[i])->internal_format);
+            auto* texObj = mgGetTexObjectByID(textures[i]);
+            GLenum fmt = (texObj != nullptr) ? texObj->internal_format : GL_R8;
+            glBindImageTexture(first + i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, fmt);
         }
     }
 }
