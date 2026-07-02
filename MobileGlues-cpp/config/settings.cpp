@@ -25,8 +25,9 @@ void init_settings() {
         }
     }
 
-    AngleConfig angleConfig =
-        success ? static_cast<AngleConfig>(config_get_int("enableANGLE")) : AngleConfig::DisableIfPossible;
+    // AngleConfig angleConfig =
+    //     success ? static_cast<AngleConfig>(config_get_int("enableANGLE")) : AngleConfig::DisableIfPossible;
+    AngleConfig angleConfig = AngleConfig::ForceDisable; // enableANGLE always disabled
     NoErrorConfig noErrorConfig =
         success ? static_cast<NoErrorConfig>(config_get_int("enableNoError")) : NoErrorConfig::Auto;
     bool enableExtComputeShader = success ? (config_get_int("enableExtComputeShader") > 0) : false;
@@ -50,9 +51,9 @@ void init_settings() {
         maxGlslCacheSize = success ? config_get_int("maxGlslCacheSize") * 1024 * 1024 : 0;
     }
 
-    if (static_cast<int>(angleConfig) < 0 || static_cast<int>(angleConfig) > 3) {
-        angleConfig = AngleConfig::EnableIfPossible;
-    }
+    // if (static_cast<int>(angleConfig) < 0 || static_cast<int>(angleConfig) > 3) {
+    //     angleConfig = AngleConfig::EnableIfPossible;
+    // }
     if (static_cast<int>(noErrorConfig) < 0 || static_cast<int>(noErrorConfig) > 3) {
         noErrorConfig = NoErrorConfig::Auto;
     }
