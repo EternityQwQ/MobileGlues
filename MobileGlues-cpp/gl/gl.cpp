@@ -25,7 +25,7 @@
 // glClearDepth - desktop uses double, ES uses float
 // ============================================================================
 
-void glClearDepth(GLclampd depth) {
+extern "C" void glClearDepth(GLclampd depth) {
     GLES.glClearDepthf((float)depth);
     GLState.legacy.clearDepth = (GLfloat)depth;
 }
@@ -34,7 +34,7 @@ void glClearDepth(GLclampd depth) {
 // glClear - handles legacy clear mask conversion
 // ============================================================================
 
-void glClear(GLbitfield mask) {
+extern "C" void glClear(GLbitfield mask) {
     // GL_ACCUM_BUFFER_BIT is not supported in ES, strip it
     mask &= ~0x00000200; // GL_ACCUM_BUFFER_BIT
     GLES.glClear(mask);
@@ -44,7 +44,7 @@ void glClear(GLbitfield mask) {
 // glHint - pass through (ES supports basic hints)
 // ============================================================================
 
-void glHint(GLenum target, GLenum mode) {
+extern "C" void glHint(GLenum target, GLenum mode) {
     GLES.glHint(target, mode);
 }
 

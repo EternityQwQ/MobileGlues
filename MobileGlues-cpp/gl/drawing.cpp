@@ -67,49 +67,49 @@ static void readbackAtomicCounters() {
 // Draw call dispatch
 // ============================================================================
 
-void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
+extern "C" void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawArrays(mode, first, count);
 }
 
-void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices) {
+extern "C" void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElements(mode, count, type, indices);
 }
 
-void glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount) {
+extern "C" void glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawArraysInstanced(mode, first, count, instancecount);
 }
 
-void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount) {
+extern "C" void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElementsInstanced(mode, count, type, indices, instancecount);
 }
 
-void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices) {
+extern "C" void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawRangeElements(mode, start, end, count, type, indices);
 }
 
-void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
+extern "C" void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
 }
 
-void glDrawArraysIndirect(GLenum mode, const void *indirect) {
+extern "C" void glDrawArraysIndirect(GLenum mode, const void *indirect) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawArraysIndirect(mode, indirect);
 }
 
-void glDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect) {
+extern "C" void glDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDrawElementsIndirect(mode, type, indirect);
@@ -119,7 +119,7 @@ void glDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect) {
 // Compute shader dispatch
 // ============================================================================
 
-void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) {
+extern "C" void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z) {
     PREPARE_FOR_DRAW();
     syncAtomicCounters();
     GLES.glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
@@ -130,7 +130,7 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 // glDrawBuffers - track draw buffer state
 // ============================================================================
 
-void glDrawBuffers(GLsizei n, const GLenum *bufs) {
+extern "C" void glDrawBuffers(GLsizei n, const GLenum *bufs) {
     GLES.glDrawBuffers(n, bufs);
 
     auto &fb = GLState.framebuffer;
@@ -144,7 +144,7 @@ void glDrawBuffers(GLsizei n, const GLenum *bufs) {
 // glBindImageTexture - track image unit state
 // ============================================================================
 
-void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format) {
+extern "C" void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format) {
     GLES.glBindImageTexture(unit, texture, level, layered, layer, access, format);
 
     if (unit < MAX_IMAGE_UNITS) {
@@ -162,7 +162,7 @@ void glBindImageTexture(GLuint unit, GLuint texture, GLint level, GLboolean laye
 // glMemoryBarrier - handle atomic counter buffer sync
 // ============================================================================
 
-void glMemoryBarrier(GLbitfield barriers) {
+extern "C" void glMemoryBarrier(GLbitfield barriers) {
     if (barriers & GL_ATOMIC_COUNTER_BARRIER_BIT) {
         syncAtomicCounters();
     }

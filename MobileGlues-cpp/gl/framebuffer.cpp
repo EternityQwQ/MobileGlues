@@ -34,7 +34,7 @@ static size_t g_tempFboPoolIndex = 0;
 // FBO ID management
 // ============================================================================
 
-void glGenFramebuffers(GLsizei n, GLuint *framebuffers) {
+extern "C" void glGenFramebuffers(GLsizei n, GLuint *framebuffers) {
     LOG()
     GLES.glGenFramebuffers(n, framebuffers);
 
@@ -45,7 +45,7 @@ void glGenFramebuffers(GLsizei n, GLuint *framebuffers) {
     }
 }
 
-void glDeleteFramebuffers(GLsizei n, const GLuint *framebuffers) {
+extern "C" void glDeleteFramebuffers(GLsizei n, const GLuint *framebuffers) {
     LOG()
     GLES.glDeleteFramebuffers(n, framebuffers);
 
@@ -67,7 +67,7 @@ void glDeleteFramebuffers(GLsizei n, const GLuint *framebuffers) {
 // glBindFramebuffer
 // ============================================================================
 
-void glBindFramebuffer(GLenum target, GLuint framebuffer) {
+extern "C" void glBindFramebuffer(GLenum target, GLuint framebuffer) {
     LOG()
     GLES.glBindFramebuffer(target, framebuffer);
 
@@ -87,7 +87,7 @@ void glBindFramebuffer(GLenum target, GLuint framebuffer) {
 // glFramebufferTexture2D / glFramebufferTexture - attachment tracking
 // ============================================================================
 
-void glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) {
+extern "C" void glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) {
     LOG()
     GLenum esTexTarget = GLStateManager::ConvertTextureTarget(textarget);
     GLES.glFramebufferTexture2D(target, attachment, esTexTarget, texture, level);
@@ -104,7 +104,7 @@ void glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, 
     }
 }
 
-void glFramebufferTexture(GLenum target, GLenum attachment, GLuint texture, GLint level) {
+extern "C" void glFramebufferTexture(GLenum target, GLenum attachment, GLuint texture, GLint level) {
     LOG()
     GLES.glFramebufferTexture(target, attachment, texture, level);
 
@@ -123,7 +123,7 @@ void glFramebufferTexture(GLenum target, GLenum attachment, GLuint texture, GLin
 // glFramebufferTextureLayer - native passthrough
 // ============================================================================
 
-void glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer) {
+extern "C" void glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer) {
     GLES.glFramebufferTextureLayer(target, attachment, texture, level, layer);
 }
 
@@ -131,7 +131,7 @@ void glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture,
 // glFramebufferRenderbuffer - native passthrough
 // ============================================================================
 
-void glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) {
+extern "C" void glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) {
     GLES.glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer);
 }
 
@@ -139,13 +139,21 @@ void glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbu
 // glCheckFramebufferStatus
 // ============================================================================
 
-GLenum glCheckFramebufferStatus(GLenum target) {
+extern "C" GLenum glCheckFramebufferStatus(GLenum target) {
     LOG()
     GLenum status = GLES.glCheckFramebufferStatus(target);
     // Ignore incomplete errors for applications that don't fully set up FBOs
-    if (status == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ||
-        status == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) {
-        status = GL_FRAMEBUFFER_COMPLETE;
+    // or use incompatible configurations (e.g. MRT with unsupported formats).
+    // Desktop GL shaders (like ComplementaryUnbound) may use FBO configurations
+    // that are not directly supported by GLES drivers.
+    switch (status) {
+        case GL_FRAMEBUFFER_COMPLETE:
+            break;
+        default:
+            // Treat all non-complete statuses as complete to prevent crashes
+            LOG_D("glCheckFramebufferStatus: ignoring status 0x%X, returning COMPLETE", status);
+            status = GL_FRAMEBUFFER_COMPLETE;
+            break;
     }
     return status;
 }
@@ -154,7 +162,7 @@ GLenum glCheckFramebufferStatus(GLenum target) {
 // glFramebufferParameteri - native passthrough
 // ============================================================================
 
-void glFramebufferParameteri(GLenum target, GLenum pname, GLint param) {
+extern "C" void glFramebufferParameteri(GLenum target, GLenum pname, GLint param) {
     GLES.glFramebufferParameteri(target, pname, param);
 }
 
@@ -162,7 +170,7 @@ void glFramebufferParameteri(GLenum target, GLenum pname, GLint param) {
 // glGetFramebufferAttachmentParameteriv - native passthrough
 // ============================================================================
 
-void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLenum pname, GLint *params) {
+extern "C" void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLenum pname, GLint *params) {
     GLES.glGetFramebufferAttachmentParameteriv(target, attachment, pname, params);
 }
 
@@ -170,7 +178,7 @@ void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLe
 // glGetFramebufferParameteriv - native passthrough
 // ============================================================================
 
-void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint *params) {
+extern "C" void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint *params) {
     GLES.glGetFramebufferParameteriv(target, pname, params);
 }
 
@@ -178,7 +186,7 @@ void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint *params) {
 // glBlitFramebuffer - native passthrough
 // ============================================================================
 
-void glBlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+extern "C" void glBlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
                        GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                        GLbitfield mask, GLenum filter) {
     // Strip GL_ACCUM_BUFFER_BIT
@@ -190,11 +198,11 @@ void glBlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
 // glInvalidateFramebuffer / glInvalidateSubFramebuffer - native passthrough
 // ============================================================================
 
-void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments) {
+extern "C" void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments) {
     GLES.glInvalidateFramebuffer(target, numAttachments, attachments);
 }
 
-void glInvalidateSubFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments,
+extern "C" void glInvalidateSubFramebuffer(GLenum target, GLsizei numAttachments, const GLenum *attachments,
                                 GLint x, GLint y, GLsizei width, GLsizei height) {
     GLES.glInvalidateSubFramebuffer(target, numAttachments, attachments, x, y, width, height);
 }
